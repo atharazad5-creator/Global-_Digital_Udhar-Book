@@ -1,16 +1,16 @@
-import 'package0:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 void main() {
-  runApp(const GlobalUdharApp());
+  runApp(const GlobalDigitalKhataApp());
 }
 
-class GlobalUdharApp extends StatelessWidget {
-  const GlobalUdharApp({super.key});
+class GlobalDigitalKhataApp extends StatelessWidget {
+  const GlobalDigitalKhataApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Global Digital Udhar Book',
+      title: 'Global Digital Khata',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         primarySwatch: Colors.blue,
@@ -28,7 +28,7 @@ class DashboardScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Global Digital Udhar Book'),
+        title: const Text('Global Digital Khata'),
         backgroundColor: Colors.blueAccent,
         foregroundColor: Colors.white,
       ),
