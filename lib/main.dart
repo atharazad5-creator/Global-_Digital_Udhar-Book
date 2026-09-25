@@ -67,42 +67,29 @@ class DashboardScreen extends StatelessWidget {
           ],
         ),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: GridView.count(
-          crossAxisCount: 1,
-          crossAxisSpacing: 10,
-          mainAxisSpacing: 10,
-          shrinkWrap: true,
+      body: const Padding(
+        padding: EdgeInsets.all(16.0),
+        child: Column(
           children: [
-            _buildDashboardCard('My Outlet', Icons.store, Colors.orange),
-            _buildDashboardCard('Stock', Icons.inventory, Colors.green),
-            _buildDashboardCard('Sales Order', Icons.shopping_cart, Colors.purple),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDashboardCard(String title, IconData icon, Color color) {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: InkWell(
-        onTap: () {},
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 48, color: color),
-              const SizedBox(height: 10),
-              Text(
-                title,
-                style: const TextStyle(
-                    fontSize: 18, fontWeight: FontWeight.bold),
+            Card(
+              child: ListTile(
+                leading: Icon(Icons.store, color: Colors.orange),
+                title: Text('My Outlet'),
               ),
-            ],
-          ),
+            ),
+            Card(
+              child: ListTile(
+                leading: Icon(Icons.inventory, color: Colors.green),
+                title: Text('Stock'),
+              ),
+            ),
+            Card(
+              child: ListTile(
+                leading: Icon(Icons.shopping_cart, color: Colors.purple),
+                title: Text('Sales Order'),
+              ),
+            ),
+          ],
         ),
       ),
     );
