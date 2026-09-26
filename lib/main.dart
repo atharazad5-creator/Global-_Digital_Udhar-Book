@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 
 void main() {
   runApp(const GlobalDigitalKhataApp());
@@ -112,11 +113,16 @@ class _StockScreenState extends State<StockScreen> {
   final List<Map<String, dynamic>> _stockItems = [];
   List<Map<String, dynamic>> _filteredItems = [];
   final ImagePicker _picker = ImagePicker();
+  
+  // Voice Speech Controller
+  late stt.SpeechToText _speech;
+  bool _isListening = false;
 
   @override
   void initState() {
     super.initState();
     _filteredItems = _stockItems;
+    _speech = stt.SpeechToText();
   }
 
   void _filterStock(String query) {
@@ -134,47 +140,85 @@ class _StockScreenState extends State<StockScreen> {
     });
   }
 
-  void _listenVoiceInput() {
-    showDialog(
-      context: context,
-      builder: (context) {
-        final voiceController = TextEditingController();
-        return AlertDialog(
-          title: const Row(
-            children: [
-              Icon(Icons.mic, color: Colors.blueAccent),
-              SizedBox(width: 8),
-              Text('Voice Search'),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('Speak now or type voice command:'),
-              const SizedBox(height: 12),
-              TextField(
-                controller: voiceController,
-                autofocus: true,
-                textCapitalization: TextCapitalization.words,
-                decoration: const InputDecoration(
-                  hintText: 'e.g. Cotton Shirt',
-                  border: OutlineInputBorder(),
-                ),
+  void _listenVoiceInput() async {
+    bool available = await _speech.initialize(
+      onStatus: (status) {
+        if (status == 'done' || status == 'notListening') {
+          setState(() => _isListening = false);
+        }
+      },
+      onError: (errorNotification) {
+        setState(() => _isListening = false);
+      },
+    );
+
+    if (available) {
+      setState(() => _isListening = true);
+      _speech.listen(
+        onResult: (result) {
+          setState(() {
+            _searchController.text = result.recognizedWords;
+            _filterStock(result.recognizedWords);
+          });
+        },
+      );
+      
+      showDialog(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.mic, color: Colors.redAccent),
+                SizedBox(width: 8),
+                Text('Listening...'),
+              ],
+            ),
+            content: const Text('Speak now to search product...'),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  _speech.stop();
+                  setState(() => _isListening = false);
+                  Navigator.pop(context);
+                },
+                child: const Text('Done'),
               ),
             ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                _searchController.text = voiceController.text;
-                _filterStock(voiceController.text);
+          );
+        },
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Speech recognition not available')),
+      );
+    }
+  }
+
+  void _showItemOptions(Map<String, dynamic> item, int index) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) {
+        return Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.edit, color: Colors.orange),
+              title: const Text('Edit Item'),
+              onTap: () {
                 Navigator.pop(context);
+                _showStockDialog(itemToEdit: item, index: index);
               },
-              child: const Text('Search'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete, color: Colors.red),
+              title: const Text('Delete Item'),
+              onTap: () {
+                Navigator.pop(context);
+                setState(() {
+                  _stockItems.removeAt(index);
+                  _filterStock(_searchController.text);
+                });
+              },
             ),
           ],
         );
@@ -311,7 +355,7 @@ class _StockScreenState extends State<StockScreen> {
                             controller: packetRateController,
                             keyboardType: TextInputType.number,
                             decoration: const InputDecoration(
-                              labelText: 'Packet Rate',
+                              labelText: 'Packet / Unit Rate',
                               border: OutlineInputBorder(),
                             ),
                           ),
@@ -322,7 +366,7 @@ class _StockScreenState extends State<StockScreen> {
                             controller: pcsPerPacketController,
                             keyboardType: TextInputType.number,
                             decoration: const InputDecoration(
-                              labelText: 'Pcs Per Packet',
+                              labelText: 'Pcs Per Packet / Unit',
                               border: OutlineInputBorder(),
                             ),
                           ),
@@ -334,7 +378,7 @@ class _StockScreenState extends State<StockScreen> {
                       controller: availPacketsController,
                       keyboardType: TextInputType.number,
                       decoration: const InputDecoration(
-                        labelText: 'Available Packets',
+                        labelText: 'Available Packets / Units',
                         border: OutlineInputBorder(),
                       ),
                     ),
@@ -405,7 +449,10 @@ class _StockScreenState extends State<StockScreen> {
                 hintText: 'Search product or digit...',
                 prefixIcon: const Icon(Icons.search),
                 suffixIcon: IconButton(
-                  icon: const Icon(Icons.mic, color: Colors.blueAccent),
+                  icon: Icon(
+                    _isListening ? Icons.mic : Icons.mic_none,
+                    color: _isListening ? Colors.red : Colors.blueAccent,
+                  ),
                   onPressed: _listenVoiceInput,
                 ),
                 border: OutlineInputBorder(
@@ -428,6 +475,7 @@ class _StockScreenState extends State<StockScreen> {
                       return Card(
                         margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         child: ListTile(
+                          onLongPress: () => _showItemOptions(item, index), // Long press to edit/delete
                           leading: CircleAvatar(
                             backgroundColor: Colors.blueAccent,
                             backgroundImage: imagePath != null ? FileImage(File(imagePath)) : null,
@@ -440,27 +488,7 @@ class _StockScreenState extends State<StockScreen> {
                             style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
                           subtitle: Text(
-                            'Cartons: ${item['availCartons']} (Rate: ${item['cartonRate']}) | Packets: ${item['availPackets']} (Rate: ${item['packetRate']})',
-                          ),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.edit, color: Colors.orange),
-                                onPressed: () {
-                                  _showStockDialog(itemToEdit: item, index: index);
-                                },
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.delete, color: Colors.red),
-                                onPressed: () {
-                                  setState(() {
-                                    _stockItems.removeAt(index);
-                                    _filterStock(_searchController.text);
-                                  });
-                                },
-                              ),
-                            ],
+                            'Cartons: ${item['availCartons']} (Rate: ${item['cartonRate']}) | Packets/Units: ${item['availPackets']} (Rate: ${item['packetRate']})',
                           ),
                         ),
                       );
