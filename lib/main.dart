@@ -1,7 +1,9 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   runApp(const GlobalDigitalKhataApp());
@@ -110,19 +112,36 @@ class StockScreen extends StatefulWidget {
 
 class _StockScreenState extends State<StockScreen> {
   final TextEditingController _searchController = TextEditingController();
-  final List<Map<String, dynamic>> _stockItems = [];
+  List<Map<String, dynamic>> _stockItems = [];
   List<Map<String, dynamic>> _filteredItems = [];
   final ImagePicker _picker = ImagePicker();
-  
-  // Voice Speech Controller
+
   late stt.SpeechToText _speech;
   bool _isListening = false;
 
   @override
   void initState() {
     super.initState();
-    _filteredItems = _stockItems;
     _speech = stt.SpeechToText();
+    _loadStockData(); // ایپ کھلتے ہی محفوظ شدہ ڈیٹا لوڈ ہوگا
+  }
+
+  // Local Storage سے ڈیٹا محفوظ اور لوڈ کرنے کے فنکشنز
+  Future<void> _saveStockData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String encodedData = jsonEncode(_stockItems);
+    await prefs.setString('stock_items_key', encodedData);
+  }
+
+  Future<void> _loadStockData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? encodedData = prefs.getString('stock_items_key');
+    if (encodedData != null) {
+      setState(() {
+        _stockItems = List<Map<String, dynamic>>.from(jsonDecode(encodedData));
+        _filteredItems = _stockItems;
+      });
+    }
   }
 
   void _filterStock(String query) {
@@ -147,7 +166,7 @@ class _StockScreenState extends State<StockScreen> {
           setState(() => _isListening = false);
         }
       },
-      onError: (errorNotification) {
+      onError: (error) {
         setState(() => _isListening = false);
       },
     );
@@ -162,7 +181,7 @@ class _StockScreenState extends State<StockScreen> {
           });
         },
       );
-      
+
       showDialog(
         context: context,
         builder: (context) {
@@ -190,7 +209,7 @@ class _StockScreenState extends State<StockScreen> {
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Speech recognition not available')),
+        const SnackBar(content: Text('Please enable Microphone Permission in App Settings')),
       );
     }
   }
@@ -216,6 +235,7 @@ class _StockScreenState extends State<StockScreen> {
                 Navigator.pop(context);
                 setState(() {
                   _stockItems.removeAt(index);
+                  _saveStockData(); // ڈیلیٹ کرنے کے بعد محفوظ کریں
                   _filterStock(_searchController.text);
                 });
               },
@@ -411,6 +431,7 @@ class _StockScreenState extends State<StockScreen> {
                               } else if (index != null) {
                                 _stockItems[index] = newItem;
                               }
+                              _saveStockData(); // ڈیٹا محفوظ کریں
                               _filterStock(_searchController.text);
                             });
                             Navigator.pop(context);
@@ -475,7 +496,7 @@ class _StockScreenState extends State<StockScreen> {
                       return Card(
                         margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         child: ListTile(
-                          onLongPress: () => _showItemOptions(item, index), // Long press to edit/delete
+                          onLongPress: () => _showItemOptions(item, index),
                           leading: CircleAvatar(
                             backgroundColor: Colors.blueAccent,
                             backgroundImage: imagePath != null ? FileImage(File(imagePath)) : null,
@@ -487,8 +508,13 @@ class _StockScreenState extends State<StockScreen> {
                             '${item['name']} (${item['size']})',
                             style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
-                          subtitle: Text(
-                            'Cartons: ${item['availCartons']} (Rate: ${item['cartonRate']}) | Packets/Units: ${item['availPackets']} (Rate: ${item['packetRate']})',
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const SizedBox(height: 4),
+                              Text('Cartons: ${item['availCartons']} (Rate: ${item['cartonRate']})'),
+                              Text('Packets/Units: ${item['availPackets']} (Rate: ${item['packetRate']})'),
+                            ],
                           ),
                         ),
                       );
