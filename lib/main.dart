@@ -155,7 +155,7 @@ class _StockScreenState extends State<StockScreen> {
               TextField(
                 controller: voiceController,
                 autofocus: true,
-                textCapitalization: TextCapitalization.words, // Capitalization per word
+                textCapitalization: TextCapitalization.words,
                 decoration: const InputDecoration(
                   hintText: 'e.g. Cotton Shirt',
                   border: OutlineInputBorder(),
@@ -253,7 +253,7 @@ class _StockScreenState extends State<StockScreen> {
 
                     TextField(
                       controller: nameController,
-                      textCapitalization: TextCapitalization.words, // Capitalization per word
+                      textCapitalization: TextCapitalization.words,
                       decoration: const InputDecoration(
                         labelText: 'Product Name',
                         border: OutlineInputBorder(),
@@ -262,7 +262,7 @@ class _StockScreenState extends State<StockScreen> {
                     const SizedBox(height: 10),
                     TextField(
                       controller: sizeController,
-                      textCapitalization: TextCapitalization.words, // Capitalization per word
+                      textCapitalization: TextCapitalization.words,
                       decoration: const InputDecoration(
                         labelText: 'Size',
                         border: OutlineInputBorder(),
@@ -400,7 +400,7 @@ class _StockScreenState extends State<StockScreen> {
             child: TextField(
               controller: _searchController,
               onChanged: _filterStock,
-              textCapitalization: TextCapitalization.words, // Capitalization per word
+              textCapitalization: TextCapitalization.words,
               decoration: InputDecoration(
                 hintText: 'Search product or digit...',
                 prefixIcon: const Icon(Icons.search),
