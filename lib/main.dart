@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 void main() {
   runApp(const GlobalDigitalKhataApp());
@@ -46,7 +48,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             const DrawerHeader(
               decoration: BoxDecoration(color: Colors.blueAccent),
               child: Text(
-                'مینو',
+                'Menu',
                 style: TextStyle(color: Colors.white, fontSize: 24),
               ),
             ),
@@ -85,7 +87,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 children: [
                   ElevatedButton.icon(
                     icon: const Icon(Icons.inventory),
-                    label: const Text('Stock Screen پر جائیں'),
+                    label: const Text('Go to Stock Screen'),
                     onPressed: () {
                       setState(() => _selectedIndex = 1);
                     },
@@ -97,7 +99,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 }
 
-// ==================== اسٹاک کا مکمل صفحہ (مع ایڈٹ اور ڈیلیٹ) ====================
+// ==================== Stock Screen ====================
 class StockScreen extends StatefulWidget {
   const StockScreen({super.key});
 
@@ -109,6 +111,7 @@ class _StockScreenState extends State<StockScreen> {
   final TextEditingController _searchController = TextEditingController();
   final List<Map<String, dynamic>> _stockItems = [];
   List<Map<String, dynamic>> _filteredItems = [];
+  final ImagePicker _picker = ImagePicker();
 
   @override
   void initState() {
@@ -131,7 +134,54 @@ class _StockScreenState extends State<StockScreen> {
     });
   }
 
-  // نیا اسٹاک شامل کرنے یا پرانے کو ایڈٹ کرنے کا فنکشن
+  void _listenVoiceInput() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        final voiceController = TextEditingController();
+        return AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.mic, color: Colors.blueAccent),
+              SizedBox(width: 8),
+              Text('Voice Search'),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Speak now or type voice command:'),
+              const SizedBox(height: 12),
+              TextField(
+                controller: voiceController,
+                autofocus: true,
+                textCapitalization: TextCapitalization.words, // Capitalization per word
+                decoration: const InputDecoration(
+                  hintText: 'e.g. Cotton Shirt',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                _searchController.text = voiceController.text;
+                _filterStock(voiceController.text);
+                Navigator.pop(context);
+              },
+              child: const Text('Search'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   void _showStockDialog({Map<String, dynamic>? itemToEdit, int? index}) {
     final nameController = TextEditingController(text: itemToEdit?['name'] ?? '');
     final sizeController = TextEditingController(text: itemToEdit?['size'] ?? '');
@@ -141,6 +191,7 @@ class _StockScreenState extends State<StockScreen> {
     final packetRateController = TextEditingController(text: itemToEdit?['packetRate'] ?? '');
     final pcsPerPacketController = TextEditingController(text: itemToEdit?['pcsPerPacket'] ?? '');
     final availPacketsController = TextEditingController(text: itemToEdit?['availPackets'] ?? '');
+    File? selectedImage = itemToEdit?['image'] != null ? File(itemToEdit!['image']) : null;
 
     showModalBottomSheet(
       context: context,
@@ -149,151 +200,190 @@ class _StockScreenState extends State<StockScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-            left: 16,
-            right: 16,
-            top: 20,
-          ),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  itemToEdit == null ? 'نیا اسٹاک شامل کریں' : 'اسٹاک کی تفصیلات ایڈٹ کریں',
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 15),
-                TextField(
-                  controller: nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'پروڈکٹ کا نام (Product Name)',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: sizeController,
-                  decoration: const InputDecoration(
-                    labelText: 'سائز (Size)',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: cartonRateController,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'کارٹن ریٹ',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: TextField(
-                        controller: cartonPackingController,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'کارٹن پیکنگ',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: availCartonsController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'دستیاب کارٹن (Available Cartons)',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: packetRateController,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'پیکٹ ریٹ',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: TextField(
-                        controller: pcsPerPacketController,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'پیکٹ میں پیسز',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: availPacketsController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'دستیاب پیکٹ (Available Packets)',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blueAccent,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
-                    onPressed: () {
-                      if (nameController.text.isNotEmpty) {
-                        setState(() {
-                          final newItem = {
-                            'name': nameController.text,
-                            'size': sizeController.text,
-                            'cartonRate': cartonRateController.text,
-                            'cartonPacking': cartonPackingController.text,
-                            'availCartons': availCartonsController.text,
-                            'packetRate': packetRateController.text,
-                            'pcsPerPacket': pcsPerPacketController.text,
-                            'availPackets': availPacketsController.text,
-                          };
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            Future<void> pickImage() async {
+              final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+              if (image != null) {
+                setModalState(() {
+                  selectedImage = File(image.path);
+                });
+              }
+            }
 
-                          if (itemToEdit == null) {
-                            _stockItems.add(newItem);
-                          } else if (index != null) {
-                            _stockItems[index] = newItem;
-                          }
-                          _filterStock(_searchController.text);
-                        });
-                        Navigator.pop(context);
-                      }
-                    },
-                    child: Text(
-                      itemToEdit == null ? 'سیو کریں (Save)' : 'اپ ڈیٹ کریں (Update)',
-                      style: const TextStyle(fontSize: 16),
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+                left: 16,
+                right: 16,
+                top: 20,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      itemToEdit == null ? 'Add New Stock' : 'Edit Stock Details',
+                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                     ),
-                  ),
+                    const SizedBox(height: 15),
+                    
+                    // Image Picker
+                    Center(
+                      child: GestureDetector(
+                        onTap: pickImage,
+                        child: CircleAvatar(
+                          radius: 40,
+                          backgroundColor: Colors.blueAccent.shade100,
+                          backgroundImage: selectedImage != null ? FileImage(selectedImage!) : null,
+                          child: selectedImage == null
+                              ? const Icon(Icons.add_a_photo, size: 30, color: Colors.white)
+                              : null,
+                        ),
+                      ),
+                    ),
+                    const Center(
+                      child: Padding(
+                        padding: EdgeInsets.only(top: 6),
+                        child: Text('Tap to select image from Gallery/Files', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                      ),
+                    ),
+                    const SizedBox(height: 15),
+
+                    TextField(
+                      controller: nameController,
+                      textCapitalization: TextCapitalization.words, // Capitalization per word
+                      decoration: const InputDecoration(
+                        labelText: 'Product Name',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: sizeController,
+                      textCapitalization: TextCapitalization.words, // Capitalization per word
+                      decoration: const InputDecoration(
+                        labelText: 'Size',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: cartonRateController,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              labelText: 'Carton Rate',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: TextField(
+                            controller: cartonPackingController,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              labelText: 'Carton Packing',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: availCartonsController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Available Cartons',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: packetRateController,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              labelText: 'Packet Rate',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: TextField(
+                            controller: pcsPerPacketController,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              labelText: 'Pcs Per Packet',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: availPacketsController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Available Packets',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blueAccent,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        onPressed: () {
+                          if (nameController.text.isNotEmpty) {
+                            setState(() {
+                              final newItem = {
+                                'name': nameController.text,
+                                'size': sizeController.text,
+                                'cartonRate': cartonRateController.text,
+                                'cartonPacking': cartonPackingController.text,
+                                'availCartons': availCartonsController.text,
+                                'packetRate': packetRateController.text,
+                                'pcsPerPacket': pcsPerPacketController.text,
+                                'availPackets': availPacketsController.text,
+                                'image': selectedImage?.path,
+                              };
+
+                              if (itemToEdit == null) {
+                                _stockItems.add(newItem);
+                              } else if (index != null) {
+                                _stockItems[index] = newItem;
+                              }
+                              _filterStock(_searchController.text);
+                            });
+                            Navigator.pop(context);
+                          }
+                        },
+                        child: Text(
+                          itemToEdit == null ? 'Save' : 'Update',
+                          style: const TextStyle(fontSize: 16),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
                 ),
-                const SizedBox(height: 20),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         );
       },
     );
@@ -304,22 +394,19 @@ class _StockScreenState extends State<StockScreen> {
     return Scaffold(
       body: Column(
         children: [
-          // سرچ بار اور وائس مائیک
+          // Search Bar
           Padding(
             padding: const EdgeInsets.all(12.0),
             child: TextField(
               controller: _searchController,
               onChanged: _filterStock,
+              textCapitalization: TextCapitalization.words, // Capitalization per word
               decoration: InputDecoration(
-                hintText: 'پروڈکٹ کا نام یا ہندسہ تلاش کریں...',
+                hintText: 'Search product or digit...',
                 prefixIcon: const Icon(Icons.search),
                 suffixIcon: IconButton(
                   icon: const Icon(Icons.mic, color: Colors.blueAccent),
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('وائس سرچ جلد فعال کی جائے گی')),
-                    );
-                  },
+                  onPressed: _listenVoiceInput,
                 ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -327,41 +414,43 @@ class _StockScreenState extends State<StockScreen> {
               ),
             ),
           ),
-          // اسٹاک آئٹمز کی لسٹ
+          // Stock List
           Expanded(
             child: _filteredItems.isEmpty
                 ? const Center(
-                    child: Text('کوئی اسٹاک موجود نہیں ہے، + پر کلک کر کے شامل کریں۔'),
+                    child: Text('No stock available. Tap + to add stock.'),
                   )
                 : ListView.builder(
                     itemCount: _filteredItems.length,
                     itemBuilder: (context, index) {
                       final item = _filteredItems[index];
+                      final imagePath = item['image'];
                       return Card(
                         margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         child: ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: Colors.blueAccent,
+                            backgroundImage: imagePath != null ? FileImage(File(imagePath)) : null,
+                            child: imagePath == null
+                                ? const Icon(Icons.inventory_2, color: Colors.white)
+                                : null,
+                          ),
                           title: Text(
                             '${item['name']} (${item['size']})',
                             style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
                           subtitle: Text(
-                            'کارٹن: ${item['availCartons']} (ریٹ: ${item['cartonRate']}) | پیکٹ: ${item['availPackets']} (ریٹ: ${item['packetRate']})',
-                          ),
-                          leading: const CircleAvatar(
-                            backgroundColor: Colors.blueAccent,
-                            child: Icon(Icons.inventory_2, color: Colors.white),
+                            'Cartons: ${item['availCartons']} (Rate: ${item['cartonRate']}) | Packets: ${item['availPackets']} (Rate: ${item['packetRate']})',
                           ),
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              // ایڈٹ کا بٹن
                               IconButton(
                                 icon: const Icon(Icons.edit, color: Colors.orange),
                                 onPressed: () {
                                   _showStockDialog(itemToEdit: item, index: index);
                                 },
                               ),
-                              // ڈیلیٹ کا بٹن
                               IconButton(
                                 icon: const Icon(Icons.delete, color: Colors.red),
                                 onPressed: () {
@@ -380,7 +469,6 @@ class _StockScreenState extends State<StockScreen> {
           ),
         ],
       ),
-      // پلس کا بٹن
       floatingActionButton: FloatingActionButton(
         backgroundColor: Colors.blueAccent,
         onPressed: () => _showStockDialog(),
