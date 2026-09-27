@@ -121,7 +121,7 @@ class _StockScreenState extends State<StockScreen> {
     _loadStockData();
   }
 
-  // ڈیٹا کو مستقل محفوظ (Permanent Save) اور لوڈ کرنے کے فنکشنز
+  // ڈیٹا کو مستقل محفوظ (Permanent Save) کرنے اور لوڈ کرنے کے فنکشنز
   Future<void> _saveStockData() async {
     final prefs = await SharedPreferences.getInstance();
     final String encodedData = jsonEncode(_stockItems);
