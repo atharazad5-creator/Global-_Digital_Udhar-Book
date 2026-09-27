@@ -1,4 +1,3 @@
-
 name: global_digital_khata
 description: "A new Flutter project for Global Digital Khata."
 publish_to: 'none'
@@ -13,7 +12,6 @@ dependencies:
     sdk: flutter
   cupertino_icons: ^1.0.6
   image_picker: ^1.1.2
-  speech_to_text: ^7.0.0
   shared_preferences: ^2.2.3
 
 dev_dependencies:
