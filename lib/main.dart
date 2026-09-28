@@ -1101,7 +1101,7 @@ class _StockScreenState extends State<StockScreen> {
     final String? encodedData = prefs.getString('stock_items_key_v7');
     if (encodedData != null) {
       setState(() {
-        _stockItems = List<Map<String, dynamic>>::from(jsonDecode(encodedData));
+        _stockItems = List<Map<String, dynamic>>.from(jsonDecode(encodedData));
         _filteredItems = _stockItems;
       });
     }
@@ -1192,7 +1192,7 @@ class _StockScreenState extends State<StockScreen> {
               ),
               child: SingleChildScrollView(
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,
+                  mainAxisSize: MinAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
