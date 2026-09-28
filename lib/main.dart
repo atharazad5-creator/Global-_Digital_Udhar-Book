@@ -89,7 +89,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ? const MyOutletScreen()
           : _selectedIndex == 1
               ? const StockScreen()
-              : const Center(child: Text('Sales Order Screen Coming Soon')),
+              : const Center(child: Text('Sales Order History')),
     );
   }
 }
@@ -113,16 +113,15 @@ class _MyOutletScreenState extends State<MyOutletScreen> {
     _loadCustomerData();
   }
 
-  // Permanent Storage Functions
   Future<void> _saveCustomerData() async {
     final prefs = await SharedPreferences.getInstance();
     final String encodedData = jsonEncode(_customers);
-    await prefs.setString('customers_items_key_v2', encodedData);
+    await prefs.setString('customers_items_key_v3', encodedData);
   }
 
   Future<void> _loadCustomerData() async {
     final prefs = await SharedPreferences.getInstance();
-    final String? encodedData = prefs.getString('customers_items_key_v2');
+    final String? encodedData = prefs.getString('customers_items_key_v3');
     if (encodedData != null) {
       setState(() {
         _customers = List<Map<String, dynamic>>.from(jsonDecode(encodedData));
@@ -256,7 +255,7 @@ class _MyOutletScreenState extends State<MyOutletScreen> {
                 const SizedBox(height: 15),
 
                 Container(
-                  height: 120,
+                  height: 100,
                   width: double.infinity,
                   decoration: BoxDecoration(
                     color: Colors.grey.shade200,
@@ -267,7 +266,7 @@ class _MyOutletScreenState extends State<MyOutletScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.location_on, color: Colors.red, size: 36),
+                        Icon(Icons.location_on, color: Colors.red, size: 30),
                         SizedBox(height: 4),
                         Text('Location Pinned', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
                       ],
@@ -309,11 +308,15 @@ class _MyOutletScreenState extends State<MyOutletScreen> {
                                 'address': addressController.text,
                                 'cityName': cityNameController.text,
                                 'areaName': areaNameController.text,
+                                'balance': 0.0,
+                                'orders': [],
                               };
 
                               if (itemToEdit == null) {
                                 _customers.add(newItem);
                               } else if (index != null) {
+                                newItem['balance'] = itemToEdit['balance'] ?? 0.0;
+                                newItem['orders'] = itemToEdit['orders'] ?? [];
                                 _customers[index] = newItem;
                               }
                               _saveCustomerData();
@@ -337,7 +340,6 @@ class _MyOutletScreenState extends State<MyOutletScreen> {
     );
   }
 
-  // 5 Long Press Options Sheet
   void _showLongPressOptions(Map<String, dynamic> item, int index) {
     showModalBottomSheet(
       context: context,
@@ -347,65 +349,190 @@ class _MyOutletScreenState extends State<MyOutletScreen> {
       builder: (context) {
         return Wrap(
           children: [
-            Padding(
+            Container(
+              color: Colors.indigo.shade900,
+              width: double.infinity,
               padding: const EdgeInsets.all(16.0),
               child: Text(
                 item['shopName'] ?? 'Customer Options',
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.indigo),
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
               ),
             ),
-            const Divider(height: 1),
+            
+            // 1. CREATE ORDER (TOP OPTION)
+            ListTile(
+              leading: const Icon(Icons.add_shopping_cart, color: Colors.blue, size: 28),
+              title: const Text('1. Create Order', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              subtitle: const Text('Select items from stock & create bill'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => CreateOrderScreen(
+                      customer: item,
+                      onOrderCreated: (newOrder, totalAmount, paidAmount) {
+                        setState(() {
+                          item['orders'] = item['orders'] ?? [];
+                          item['orders'].add(newOrder);
+                          double currentBalance = (item['balance'] ?? 0.0).toDouble();
+                          item['balance'] = currentBalance + (totalAmount - paidAmount);
+                          _saveCustomerData();
+                        });
+                      },
+                    ),
+                  ),
+                );
+              },
+            ),
+            const Divider(),
+
+            // 2. RECOVERY
             ListTile(
               leading: const Icon(Icons.account_balance_wallet, color: Colors.green),
-              title: const Text('1. Recovery'),
+              title: const Text('2. Recovery'),
+              subtitle: Text('Current Balance: RS ${item['balance'] ?? 0}'),
               onTap: () {
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Recovery option selected for ${item['shopName']}')),
-                );
+                _showRecoveryDialog(item, index);
               },
             ),
+
+            // 3. WHATSAPP MESSAGE
             ListTile(
               leading: const Icon(Icons.chat, color: Colors.teal),
-              title: const Text('2. WhatsApp Message'),
+              title: const Text('3. WhatsApp Message'),
               onTap: () {
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Opening WhatsApp for ${item['shopName']}')),
+                  SnackBar(content: Text('Opening WhatsApp for ${item['mobile']}')),
                 );
               },
             ),
+
+            // 4. INVOICE
             ListTile(
               leading: const Icon(Icons.receipt_long, color: Colors.orange),
-              title: const Text('3. Invoice'),
+              title: const Text('4. Invoice'),
+              onTap: () {
+                Navigator.pop(context);
+                _showInvoiceDialog(item);
+              },
+            ),
+
+            // 5. WELCOME MESSAGE
+            ListTile(
+              leading: const Icon(Icons.waving_hand, color: Colors.purple),
+              title: const Text('5. Welcome Message'),
               onTap: () {
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Invoice option selected for ${item['shopName']}')),
+                  SnackBar(content: Text('Welcome message sent to ${item['shopName']}')),
                 );
               },
             ),
+
+            // 6. REMINDER
             ListTile(
-              leading: const Icon(Icons.waving_hand, color: Colors.blue),
-              title: const Text('4. Welcome Message'),
+              leading: const Icon(Icons.notifications_active, color: Colors.red),
+              title: const Text('6. Reminder'),
               onTap: () {
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Welcome Message sent to ${item['shopName']}')),
-                );
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.notifications_active, color: Colors.purple),
-              title: const Text('5. Reminder'),
-              onTap: () {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Reminder set for ${item['shopName']}')),
+                  SnackBar(content: Text('Payment reminder sent to ${item['shopName']}')),
                 );
               },
             ),
             const SizedBox(height: 10),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showRecoveryDialog(Map<String, dynamic> item, int index) {
+    final recoveryController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('Recovery for ${item['shopName']}'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Current Balance: RS ${item['balance'] ?? 0}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.red)),
+              const SizedBox(height: 15),
+              TextField(
+                controller: recoveryController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Received Amount (RS)',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                double received = double.tryParse(recoveryController.text) ?? 0.0;
+                if (received > 0) {
+                  setState(() {
+                    double currentBal = (item['balance'] ?? 0.0).toDouble();
+                    item['balance'] = currentBal - received;
+                    _saveCustomerData();
+                  });
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Recovery of RS $received Saved!')),
+                  );
+                }
+              },
+              child: const Text('Save Recovery'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showInvoiceDialog(Map<String, dynamic> item) {
+    List orders = item['orders'] ?? [];
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('Invoice History - ${item['shopName']}'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: orders.isEmpty
+                ? const Text('No orders found for this customer.')
+                : ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: orders.length,
+                    itemBuilder: (context, idx) {
+                      final order = orders[idx];
+                      return Card(
+                        margin: const EdgeInsets.symmetric(vertical: 4),
+                        child: ListTile(
+                          title: Text('Order Date: ${order['date']}'),
+                          subtitle: Text('Total Bill: RS ${order['total']} | Paid: RS ${order['paid']}'),
+                          trailing: Text('Bal: RS ${order['total'] - order['paid']}', style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Close'),
+            ),
           ],
         );
       },
@@ -455,7 +582,7 @@ class _MyOutletScreenState extends State<MyOutletScreen> {
                             style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
                           subtitle: Text(
-                            'Owner: ${item['contactPerson']} | City: ${item['cityName']}\nMobile: ${item['mobile']}',
+                            'Owner: ${item['contactPerson']} | City: ${item['cityName']}\nBalance: RS ${item['balance'] ?? 0}',
                           ),
                           trailing: const Icon(Icons.more_vert),
                         ),
@@ -469,6 +596,254 @@ class _MyOutletScreenState extends State<MyOutletScreen> {
         backgroundColor: Colors.indigo.shade900,
         onPressed: () => _showCustomerDialog(),
         child: const Icon(Icons.add, color: Colors.white),
+      ),
+    );
+  }
+}
+
+// ==================== Create Order Screen (Stock Integrated) ====================
+class CreateOrderScreen extends StatefulWidget {
+  final Map<String, dynamic> customer;
+  final Function(Map<String, dynamic>, double, double) onOrderCreated;
+
+  const CreateOrderScreen({super.key, required this.customer, required this.onOrderCreated});
+
+  @override
+  State<CreateOrderScreen> createState() => _CreateOrderScreenState();
+}
+
+class _CreateOrderScreenState extends State<CreateOrderScreen> {
+  List<Map<String, dynamic>> _stockItems = [];
+  List<Map<String, dynamic>> _cartItems = [];
+  final TextEditingController _paidController = TextEditingController();
+  double _totalBill = 0.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStockData();
+  }
+
+  Future<void> _loadStockData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? encodedData = prefs.getString('stock_items_key_v3');
+    if (encodedData != null) {
+      setState(() {
+        _stockItems = List<Map<String, dynamic>>.from(jsonDecode(encodedData));
+      });
+    }
+  }
+
+  Future<void> _saveStockData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String encodedData = jsonEncode(_stockItems);
+    await prefs.setString('stock_items_key_v3', encodedData);
+  }
+
+  void _addItemToCart(Map<String, dynamic> stockItem, int cartons, int packets) {
+    double cartonRate = double.tryParse(stockItem['cartonRate'] ?? '0') ?? 0.0;
+    double packetRate = double.tryParse(stockItem['packetRate'] ?? '0') ?? 0.0;
+
+    double itemTotal = (cartons * cartonRate) + (packets * packetRate);
+
+    setState(() {
+      _cartItems.add({
+        'name': stockItem['name'],
+        'cartons': cartons,
+        'packets': packets,
+        'total': itemTotal,
+      });
+
+      // Minus stock from available inventory
+      int currentCartons = int.tryParse(stockItem['availCartons'] ?? '0') ?? 0;
+      int currentPackets = int.tryParse(stockItem['availPackets'] ?? '0') ?? 0;
+
+      stockItem['availCartons'] = (currentCartons - cartons).clamp(0, 999999).toString();
+      stockItem['availPackets'] = (currentPackets - packets).clamp(0, 999999).toString();
+
+      _totalBill += itemTotal;
+      _saveStockData();
+    });
+  }
+
+  void _showAddToCartDialog(Map<String, dynamic> stockItem) {
+    final cartonsController = TextEditingController(text: '0');
+    final packetsController = TextEditingController(text: '0');
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('Order: ${stockItem['name']}'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Avail Cartons: ${stockItem['availCartons']} | Rate: ${stockItem['cartonRate']}'),
+              TextField(
+                controller: cartonsController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Order Cartons Quantity'),
+              ),
+              const SizedBox(height: 10),
+              Text('Avail Packets: ${stockItem['availPackets']} | Rate: ${stockItem['packetRate']}'),
+              TextField(
+                controller: packetsController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Order Packets Quantity'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                int c = int.tryParse(cartonsController.text) ?? 0;
+                int p = int.tryParse(packetsController.text) ?? 0;
+                if (c > 0 || p > 0) {
+                  _addItemToCart(stockItem, c, p);
+                  Navigator.pop(context);
+                }
+              },
+              child: const Text('Add to Order'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    double paid = double.tryParse(_paidController.text) ?? 0.0;
+    double remaining = _totalBill - paid;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Create Order - ${widget.customer['shopName']}'),
+        backgroundColor: Colors.blueAccent,
+        foregroundColor: Colors.white,
+      ),
+      body: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            color: Colors.blue.shade50,
+            child: const Row(
+              children: [
+                Icon(Icons.touch_app, color: Colors.blue),
+                SizedBox(width: 8),
+                Text('Tap on stock item below to add in order:', style: TextStyle(fontWeight: FontWeight.bold)),
+              ],
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: _stockItems.isEmpty
+                ? const Center(child: Text('No Stock Items Available.'))
+                : ListView.builder(
+                    itemCount: _stockItems.length,
+                    itemBuilder: (context, index) {
+                      final item = _stockItems[index];
+                      return Card(
+                        margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        child: ListTile(
+                          title: Text('${item['name']} (${item['size']})', style: const TextStyle(fontWeight: FontWeight.bold)),
+                          subtitle: Text('Cartons Left: ${item['availCartons']} | Packets Left: ${item['availPackets']}'),
+                          trailing: const Icon(Icons.add_circle, color: Colors.green, size: 30),
+                          onTap: () => _showAddToCartDialog(item),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+          const Divider(thickness: 2),
+          const Text('Items Added in Order:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          Expanded(
+            flex: 1,
+            child: _cartItems.isEmpty
+                ? const Center(child: Text('No items added to cart yet.'))
+                : ListView.builder(
+                    itemCount: _cartItems.length,
+                    itemBuilder: (context, idx) {
+                      final cart = _cartItems[idx];
+                      return ListTile(
+                        dense: true,
+                        title: Text('${cart['name']}'),
+                        subtitle: Text('Cartons: ${cart['cartons']} | Packets: ${cart['packets']}'),
+                        trailing: Text('RS ${cart['total']}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                      );
+                    },
+                  ),
+          ),
+          Card(
+            margin: const EdgeInsets.all(12),
+            color: Colors.white,
+            elevation: 4,
+            child: Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Total Bill:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      Text('RS $_totalBill', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue)),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _paidController,
+                    keyboardType: TextInputType.number,
+                    onChanged: (val) => setState(() {}),
+                    decoration: const InputDecoration(
+                      labelText: 'Payment Received Amount (RS)',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Remaining Balance:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      Text('RS $remaining', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.red)),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.indigo.shade900,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      onPressed: _cartItems.isEmpty
+                          ? null
+                          : () {
+                              final newOrder = {
+                                'date': DateTime.now().toString().split(' ')[0],
+                                'items': _cartItems,
+                                'total': _totalBill,
+                                'paid': paid,
+                              };
+                              widget.onOrderCreated(newOrder, _totalBill, paid);
+                              Navigator.pop(context);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Order Saved Successfully! Stock Updated.')),
+                              );
+                            },
+                      icon: const Icon(Icons.check_circle),
+                      label: const Text('SAVE ORDER', style: TextStyle(fontSize: 16)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -497,12 +872,12 @@ class _StockScreenState extends State<StockScreen> {
   Future<void> _saveStockData() async {
     final prefs = await SharedPreferences.getInstance();
     final String encodedData = jsonEncode(_stockItems);
-    await prefs.setString('stock_items_key_v2', encodedData);
+    await prefs.setString('stock_items_key_v3', encodedData);
   }
 
   Future<void> _loadStockData() async {
     final prefs = await SharedPreferences.getInstance();
-    final String? encodedData = prefs.getString('stock_items_key_v2');
+    final String? encodedData = prefs.getString('stock_items_key_v3');
     if (encodedData != null) {
       setState(() {
         _stockItems = List<Map<String, dynamic>>.from(jsonDecode(encodedData));
@@ -616,12 +991,6 @@ class _StockScreenState extends State<StockScreen> {
                               ? const Icon(Icons.add_a_photo, size: 30, color: Colors.white)
                               : null,
                         ),
-                      ),
-                    ),
-                    const Center(
-                      child: Padding(
-                        padding: EdgeInsets.only(top: 6),
-                        child: Text('Tap to select image from Gallery/Files', style: TextStyle(fontSize: 12, color: Colors.grey)),
                       ),
                     ),
                     const SizedBox(height: 15),
@@ -814,8 +1183,8 @@ class _StockScreenState extends State<StockScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const SizedBox(height: 4),
-                              Text('Cartons: ${item['availCartons']} (Rate: ${item['cartonRate']})'),
-                              Text('Packets/Units: ${item['availPackets']} (Rate: ${item['packetRate']})'),
+                              Text('Cartons Left: ${item['availCartons']} (Rate: ${item['cartonRate']})'),
+                              Text('Packets Left: ${item['availPackets']} (Rate: ${item['packetRate']})'),
                             ],
                           ),
                         ),
