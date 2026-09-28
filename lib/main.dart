@@ -113,15 +113,16 @@ class _MyOutletScreenState extends State<MyOutletScreen> {
     _loadCustomerData();
   }
 
+  // Permanent Storage Functions
   Future<void> _saveCustomerData() async {
     final prefs = await SharedPreferences.getInstance();
     final String encodedData = jsonEncode(_customers);
-    await prefs.setString('customers_items_key', encodedData);
+    await prefs.setString('customers_items_key_v2', encodedData);
   }
 
   Future<void> _loadCustomerData() async {
     final prefs = await SharedPreferences.getInstance();
-    final String? encodedData = prefs.getString('customers_items_key');
+    final String? encodedData = prefs.getString('customers_items_key_v2');
     if (encodedData != null) {
       setState(() {
         _customers = List<Map<String, dynamic>>.from(jsonDecode(encodedData));
@@ -254,7 +255,6 @@ class _MyOutletScreenState extends State<MyOutletScreen> {
                 ),
                 const SizedBox(height: 15),
 
-                // Map Placeholder Card
                 Container(
                   height: 120,
                   width: double.infinity,
@@ -337,47 +337,75 @@ class _MyOutletScreenState extends State<MyOutletScreen> {
     );
   }
 
-  void _showCustomerDetails(Map<String, dynamic> item, int index) {
-    showDialog(
+  // 5 Long Press Options Sheet
+  void _showLongPressOptions(Map<String, dynamic> item, int index) {
+    showModalBottomSheet(
       context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (context) {
-        return AlertDialog(
-          title: Text(item['shopName'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.indigo)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Contact Person: ${item['contactPerson']}'),
-              Text('Mobile: ${item['mobile']}'),
-              Text('Whatsapp: ${item['whatsapp']}'),
-              Text('Address: ${item['address']}'),
-              Text('City: ${item['cityName']}'),
-              Text('Area: ${item['areaName']}'),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
+        return Wrap(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Text(
+                item['shopName'] ?? 'Customer Options',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.indigo),
+              ),
+            ),
+            const Divider(height: 1),
+            ListTile(
+              leading: const Icon(Icons.account_balance_wallet, color: Colors.green),
+              title: const Text('1. Recovery'),
+              onTap: () {
                 Navigator.pop(context);
-                setState(() {
-                  _customers.removeAt(index);
-                  _saveCustomerData();
-                  _filterCustomers(_searchController.text);
-                });
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Recovery option selected for ${item['shopName']}')),
+                );
               },
-              child: const Text('Delete', style: TextStyle(color: Colors.red)),
             ),
-            TextButton(
-              onPressed: () {
+            ListTile(
+              leading: const Icon(Icons.chat, color: Colors.teal),
+              title: const Text('2. WhatsApp Message'),
+              onTap: () {
                 Navigator.pop(context);
-                _showCustomerDialog(itemToEdit: item, index: index);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Opening WhatsApp for ${item['shopName']}')),
+                );
               },
-              child: const Text('Edit'),
             ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Close'),
+            ListTile(
+              leading: const Icon(Icons.receipt_long, color: Colors.orange),
+              title: const Text('3. Invoice'),
+              onTap: () {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Invoice option selected for ${item['shopName']}')),
+                );
+              },
             ),
+            ListTile(
+              leading: const Icon(Icons.waving_hand, color: Colors.blue),
+              title: const Text('4. Welcome Message'),
+              onTap: () {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Welcome Message sent to ${item['shopName']}')),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.notifications_active, color: Colors.purple),
+              title: const Text('5. Reminder'),
+              onTap: () {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Reminder set for ${item['shopName']}')),
+                );
+              },
+            ),
+            const SizedBox(height: 10),
           ],
         );
       },
@@ -416,7 +444,8 @@ class _MyOutletScreenState extends State<MyOutletScreen> {
                       return Card(
                         margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         child: ListTile(
-                          onTap: () => _showCustomerDetails(item, index),
+                          onTap: () => _showCustomerDialog(itemToEdit: item, index: index),
+                          onLongPress: () => _showLongPressOptions(item, index),
                           leading: const CircleAvatar(
                             backgroundColor: Colors.indigo,
                             child: Icon(Icons.store, color: Colors.white),
@@ -428,7 +457,7 @@ class _MyOutletScreenState extends State<MyOutletScreen> {
                           subtitle: Text(
                             'Owner: ${item['contactPerson']} | City: ${item['cityName']}\nMobile: ${item['mobile']}',
                           ),
-                          trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                          trailing: const Icon(Icons.more_vert),
                         ),
                       );
                     },
@@ -468,12 +497,12 @@ class _StockScreenState extends State<StockScreen> {
   Future<void> _saveStockData() async {
     final prefs = await SharedPreferences.getInstance();
     final String encodedData = jsonEncode(_stockItems);
-    await prefs.setString('stock_items_key', encodedData);
+    await prefs.setString('stock_items_key_v2', encodedData);
   }
 
   Future<void> _loadStockData() async {
     final prefs = await SharedPreferences.getInstance();
-    final String? encodedData = prefs.getString('stock_items_key');
+    final String? encodedData = prefs.getString('stock_items_key_v2');
     if (encodedData != null) {
       setState(() {
         _stockItems = List<Map<String, dynamic>>.from(jsonDecode(encodedData));
