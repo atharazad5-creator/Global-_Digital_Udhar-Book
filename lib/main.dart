@@ -39,7 +39,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Global Digital Khata'),
+        title: Text(_selectedIndex == 0
+            ? 'My Outlet'
+            : _selectedIndex == 1
+                ? 'Stock'
+                : 'Sales Order'),
         backgroundColor: Colors.blueAccent,
         foregroundColor: Colors.white,
       ),
@@ -81,22 +85,362 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ],
         ),
       ),
-      body: _selectedIndex == 1
-          ? const StockScreen()
-          : Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.inventory),
-                    label: const Text('Go to Stock Screen'),
-                    onPressed: () {
-                      setState(() => _selectedIndex = 1);
-                    },
+      body: _selectedIndex == 0
+          ? const MyOutletScreen()
+          : _selectedIndex == 1
+              ? const StockScreen()
+              : const Center(child: Text('Sales Order Screen Coming Soon')),
+    );
+  }
+}
+
+// ==================== My Outlet Screen ====================
+class MyOutletScreen extends StatefulWidget {
+  const MyOutletScreen({super.key});
+
+  @override
+  State<MyOutletScreen> createState() => _MyOutletScreenState();
+}
+
+class _MyOutletScreenState extends State<MyOutletScreen> {
+  final TextEditingController _searchController = TextEditingController();
+  List<Map<String, dynamic>> _customers = [];
+  List<Map<String, dynamic>> _filteredCustomers = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCustomerData();
+  }
+
+  Future<void> _saveCustomerData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String encodedData = jsonEncode(_customers);
+    await prefs.setString('customers_items_key', encodedData);
+  }
+
+  Future<void> _loadCustomerData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? encodedData = prefs.getString('customers_items_key');
+    if (encodedData != null) {
+      setState(() {
+        _customers = List<Map<String, dynamic>>.from(jsonDecode(encodedData));
+        _filteredCustomers = _customers;
+      });
+    }
+  }
+
+  void _filterCustomers(String query) {
+    setState(() {
+      if (query.isEmpty) {
+        _filteredCustomers = _customers;
+      } else {
+        _filteredCustomers = _customers.where((item) {
+          final shop = item['shopName'].toString().toLowerCase();
+          final person = item['contactPerson'].toString().toLowerCase();
+          final city = item['cityName'].toString().toLowerCase();
+          final searchLower = query.toLowerCase();
+          return shop.contains(searchLower) ||
+              person.contains(searchLower) ||
+              city.contains(searchLower);
+        }).toList();
+      }
+    });
+  }
+
+  void _showCustomerDialog({Map<String, dynamic>? itemToEdit, int? index}) {
+    final shopNameController = TextEditingController(text: itemToEdit?['shopName'] ?? '');
+    final contactPersonController = TextEditingController(text: itemToEdit?['contactPerson'] ?? '');
+    final mobileController = TextEditingController(text: itemToEdit?['mobile'] ?? '');
+    final whatsappController = TextEditingController(text: itemToEdit?['whatsapp'] ?? '');
+    final addressController = TextEditingController(text: itemToEdit?['address'] ?? '');
+    final cityNameController = TextEditingController(text: itemToEdit?['cityName'] ?? '');
+    final areaNameController = TextEditingController(text: itemToEdit?['areaName'] ?? '');
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+            left: 16,
+            right: 16,
+            top: 20,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  itemToEdit == null ? 'New Customer' : 'Edit Customer',
+                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.indigo),
+                ),
+                const SizedBox(height: 15),
+
+                TextField(
+                  controller: shopNameController,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: const InputDecoration(
+                    labelText: 'Shop Name',
+                    border: OutlineInputBorder(),
                   ),
-                ],
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: contactPersonController,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: const InputDecoration(
+                    labelText: 'Contact Person',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: mobileController,
+                        keyboardType: TextInputType.phone,
+                        decoration: const InputDecoration(
+                          labelText: 'Mobile #',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: TextField(
+                        controller: whatsappController,
+                        keyboardType: TextInputType.phone,
+                        decoration: const InputDecoration(
+                          labelText: 'Whatsapp #',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: addressController,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: const InputDecoration(
+                    labelText: 'Address',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: cityNameController,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: const InputDecoration(
+                    labelText: 'City Name',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: areaNameController,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: const InputDecoration(
+                    labelText: 'Area Name',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 15),
+
+                // Map Placeholder Card
+                Container(
+                  height: 120,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade200,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.grey.shade400),
+                  ),
+                  child: const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.location_on, color: Colors.red, size: 36),
+                        SizedBox(height: 4),
+                        Text('Location Pinned', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.pink,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close),
+                        label: const Text('CANCEL'),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.indigo.shade900,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        onPressed: () {
+                          if (shopNameController.text.isNotEmpty) {
+                            setState(() {
+                              final newItem = {
+                                'shopName': shopNameController.text,
+                                'contactPerson': contactPersonController.text,
+                                'mobile': mobileController.text,
+                                'whatsapp': whatsappController.text,
+                                'address': addressController.text,
+                                'cityName': cityNameController.text,
+                                'areaName': areaNameController.text,
+                              };
+
+                              if (itemToEdit == null) {
+                                _customers.add(newItem);
+                              } else if (index != null) {
+                                _customers[index] = newItem;
+                              }
+                              _saveCustomerData();
+                              _filterCustomers(_searchController.text);
+                            });
+                            Navigator.pop(context);
+                          }
+                        },
+                        icon: const Icon(Icons.check),
+                        label: Text(itemToEdit == null ? 'SAVE CUSTOMER' : 'UPDATE'),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showCustomerDetails(Map<String, dynamic> item, int index) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(item['shopName'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.indigo)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Contact Person: ${item['contactPerson']}'),
+              Text('Mobile: ${item['mobile']}'),
+              Text('Whatsapp: ${item['whatsapp']}'),
+              Text('Address: ${item['address']}'),
+              Text('City: ${item['cityName']}'),
+              Text('Area: ${item['areaName']}'),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                setState(() {
+                  _customers.removeAt(index);
+                  _saveCustomerData();
+                  _filterCustomers(_searchController.text);
+                });
+              },
+              child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _showCustomerDialog(itemToEdit: item, index: index);
+              },
+              child: const Text('Edit'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: TextField(
+              controller: _searchController,
+              onChanged: _filterCustomers,
+              textCapitalization: TextCapitalization.words,
+              decoration: InputDecoration(
+                hintText: 'Search customer, shop or city...',
+                prefixIcon: const Icon(Icons.search),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ),
+          ),
+          Expanded(
+            child: _filteredCustomers.isEmpty
+                ? const Center(
+                    child: Text('No customers found. Tap + to add new customer.'),
+                  )
+                : ListView.builder(
+                    itemCount: _filteredCustomers.length,
+                    itemBuilder: (context, index) {
+                      final item = _filteredCustomers[index];
+                      return Card(
+                        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        child: ListTile(
+                          onTap: () => _showCustomerDetails(item, index),
+                          leading: const CircleAvatar(
+                            backgroundColor: Colors.indigo,
+                            child: Icon(Icons.store, color: Colors.white),
+                          ),
+                          title: Text(
+                            item['shopName'] ?? '',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          subtitle: Text(
+                            'Owner: ${item['contactPerson']} | City: ${item['cityName']}\nMobile: ${item['mobile']}',
+                          ),
+                          trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: Colors.indigo.shade900,
+        onPressed: () => _showCustomerDialog(),
+        child: const Icon(Icons.add, color: Colors.white),
+      ),
     );
   }
 }
@@ -121,7 +465,6 @@ class _StockScreenState extends State<StockScreen> {
     _loadStockData();
   }
 
-  // ڈیٹا کو مستقل محفوظ (Permanent Save) کرنے اور لوڈ کرنے کے فنکشنز
   Future<void> _saveStockData() async {
     final prefs = await SharedPreferences.getInstance();
     final String encodedData = jsonEncode(_stockItems);
@@ -152,54 +495,6 @@ class _StockScreenState extends State<StockScreen> {
         }).toList();
       }
     });
-  }
-
-  void _showVoiceSearchDialog() {
-    final voiceInputController = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Row(
-            children: [
-              Icon(Icons.mic, color: Colors.blueAccent),
-              SizedBox(width: 8),
-              Text('Voice Search'),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('Speak or type your search query:'),
-              const SizedBox(height: 12),
-              TextField(
-                controller: voiceInputController,
-                autofocus: true,
-                textCapitalization: TextCapitalization.words,
-                decoration: const InputDecoration(
-                  hintText: 'e.g. Cotton Shirt',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                _searchController.text = voiceInputController.text;
-                _filterStock(voiceInputController.text);
-                Navigator.pop(context);
-              },
-              child: const Text('Search'),
-            ),
-          ],
-        );
-      },
-    );
   }
 
   void _showItemOptions(Map<String, dynamic> item, int index) {
@@ -280,8 +575,7 @@ class _StockScreenState extends State<StockScreen> {
                       style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 15),
-                    
-                    // Image Picker
+
                     Center(
                       child: GestureDetector(
                         onTap: pickImage,
@@ -447,7 +741,6 @@ class _StockScreenState extends State<StockScreen> {
     return Scaffold(
       body: Column(
         children: [
-          // Search Bar
           Padding(
             padding: const EdgeInsets.all(12.0),
             child: TextField(
@@ -457,17 +750,12 @@ class _StockScreenState extends State<StockScreen> {
               decoration: InputDecoration(
                 hintText: 'Search product or digit...',
                 prefixIcon: const Icon(Icons.search),
-                suffixIcon: IconButton(
-                  icon: const Icon(Icons.mic, color: Colors.blueAccent),
-                  onPressed: _showVoiceSearchDialog,
-                ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
             ),
           ),
-          // Stock List
           Expanded(
             child: _filteredItems.isEmpty
                 ? const Center(
@@ -475,7 +763,7 @@ class _StockScreenState extends State<StockScreen> {
                   )
                 : ListView.builder(
                     itemCount: _filteredItems.length,
-                    itemBuilder: (context, index) {
+                    itemBuilder: (indexContext, index) {
                       final item = _filteredItems[index];
                       final imagePath = item['image'];
                       return Card(
