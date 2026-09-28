@@ -18,7 +18,7 @@ class GlobalDigitalKhataApp extends StatelessWidget {
       title: 'Global Digital Khata',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        primarySwatch: Colors.blue,
+        primarySwatch: Colors.indigo,
         useMaterial3: true,
       ),
       home: const DashboardScreen(),
@@ -45,16 +45,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
             : _selectedIndex == 1
                 ? 'Stock'
                 : 'Sales Order'),
-        backgroundColor: Colors.blueAccent,
+        backgroundColor: Colors.indigo.shade900,
         foregroundColor: Colors.white,
       ),
       drawer: Drawer(
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
-            const DrawerHeader(
-              decoration: BoxDecoration(color: Colors.blueAccent),
-              child: Text(
+            DrawerHeader(
+              decoration: BoxDecoration(color: Colors.indigo.shade900),
+              child: const Text(
                 'Menu',
                 style: TextStyle(color: Colors.white, fontSize: 24),
               ),
@@ -118,12 +118,12 @@ class _MyOutletScreenState extends State<MyOutletScreen> {
   Future<void> _saveCustomerData() async {
     final prefs = await SharedPreferences.getInstance();
     final String encodedData = jsonEncode(_customers);
-    await prefs.setString('customers_items_key_v6', encodedData);
+    await prefs.setString('customers_items_key_v7', encodedData);
   }
 
   Future<void> _loadCustomerData() async {
     final prefs = await SharedPreferences.getInstance();
-    final String? encodedData = prefs.getString('customers_items_key_v6');
+    final String? encodedData = prefs.getString('customers_items_key_v7');
     if (encodedData != null) {
       setState(() {
         _customers = List<Map<String, dynamic>>.from(jsonDecode(encodedData));
@@ -160,27 +160,10 @@ class _MyOutletScreenState extends State<MyOutletScreen> {
       }
     }
     final Uri url = Uri.parse("https://wa.me/$cleanPhone?text=${Uri.encodeComponent(message)}");
-    if (await canLaunchUrl(url)) {
-      await launchUrl(url, mode: LaunchMode.externalApplication);
-    } else {
+    if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('WhatsApp launch nahi ho saka: $cleanPhone')),
-        );
-      }
-    }
-  }
-
-  void _pickHandwrittenBill(Map<String, dynamic> item) async {
-    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-    if (image != null) {
-      setState(() {
-        item['handwrittenBill'] = image.path;
-        _saveCustomerData();
-      });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('ہاتھ سے لکھے بل کی تصویر کامیابی سے اپلوڈ ہو گئی ہے!')),
+          SnackBar(content: Text('Could not launch WhatsApp: $cleanPhone')),
         );
       }
     }
@@ -194,6 +177,7 @@ class _MyOutletScreenState extends State<MyOutletScreen> {
     final addressController = TextEditingController(text: itemToEdit?['address'] ?? '');
     final cityNameController = TextEditingController(text: itemToEdit?['cityName'] ?? '');
     final areaNameController = TextEditingController(text: itemToEdit?['areaName'] ?? '');
+    String? billImagePath = itemToEdit?['handwrittenBill'];
 
     showModalBottomSheet(
       context: context,
@@ -202,155 +186,189 @@ class _MyOutletScreenState extends State<MyOutletScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-            left: 16,
-            right: 16,
-            top: 20,
-          ),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  itemToEdit == null ? 'نیا کسٹمر شامل کریں' : 'کسٹمر کی تفصیلات ایڈٹ کریں',
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.indigo),
-                ),
-                const SizedBox(height: 15),
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            Future<void> pickBill() async {
+              final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+              if (image != null) {
+                setModalState(() {
+                  billImagePath = image.path;
+                });
+              }
+            }
 
-                TextField(
-                  controller: shopNameController,
-                  textCapitalization: TextCapitalization.words,
-                  decoration: const InputDecoration(
-                    labelText: 'دکان کا نام (Shop Name)',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: contactPersonController,
-                  textCapitalization: TextCapitalization.words,
-                  decoration: const InputDecoration(
-                    labelText: 'مالک / رابطہ کار کا نام',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Row(
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+                left: 16,
+                right: 16,
+                top: 20,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: TextField(
-                        controller: mobileController,
-                        keyboardType: TextInputType.phone,
-                        decoration: const InputDecoration(
-                          labelText: 'موبائل نمبر',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
+                    Text(
+                      itemToEdit == null ? 'Add New Customer' : 'Edit Customer Details',
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.indigo.shade900),
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: TextField(
-                        controller: whatsappController,
-                        keyboardType: TextInputType.phone,
-                        decoration: const InputDecoration(
-                          labelText: 'واٹس ایپ نمبر',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: addressController,
-                  textCapitalization: TextCapitalization.words,
-                  decoration: const InputDecoration(
-                    labelText: 'پتہ (Address)',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: cityNameController,
-                  textCapitalization: TextCapitalization.words,
-                  decoration: const InputDecoration(
-                    labelText: 'شہر کا نام',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: areaNameController,
-                  textCapitalization: TextCapitalization.words,
-                  decoration: const InputDecoration(
-                    labelText: 'علاقے کا نام (Area)',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 20),
+                    const SizedBox(height: 15),
 
-                Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.pink,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                        ),
-                        onPressed: () => Navigator.pop(context),
-                        icon: const Icon(Icons.close),
-                        label: const Text('منسوخ کریں'),
+                    TextField(
+                      controller: shopNameController,
+                      textCapitalization: TextCapitalization.words,
+                      decoration: const InputDecoration(
+                        labelText: 'Shop Name',
+                        border: OutlineInputBorder(),
                       ),
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.indigo.shade900,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: contactPersonController,
+                      textCapitalization: TextCapitalization.words,
+                      decoration: const InputDecoration(
+                        labelText: 'Owner / Contact Person',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: mobileController,
+                            keyboardType: TextInputType.phone,
+                            decoration: const InputDecoration(
+                              labelText: 'Mobile Number',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
                         ),
-                        onPressed: () {
-                          if (shopNameController.text.isNotEmpty) {
-                            setState(() {
-                              final newItem = {
-                                'shopName': shopNameController.text,
-                                'contactPerson': contactPersonController.text,
-                                'mobile': mobileController.text,
-                                'whatsapp': whatsappController.text,
-                                'address': addressController.text,
-                                'cityName': cityNameController.text,
-                                'areaName': areaNameController.text,
-                                'balance': itemToEdit?['balance'] ?? 0.0,
-                                'orders': itemToEdit?['orders'] ?? [],
-                                'handwrittenBill': itemToEdit?['handwrittenBill'],
-                              };
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: TextField(
+                            controller: whatsappController,
+                            keyboardType: TextInputType.phone,
+                            decoration: const InputDecoration(
+                              labelText: 'WhatsApp Number',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: addressController,
+                      textCapitalization: TextCapitalization.words,
+                      decoration: const InputDecoration(
+                        labelText: 'Address',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: cityNameController,
+                            textCapitalization: TextCapitalization.words,
+                            decoration: const InputDecoration(
+                              labelText: 'City Name',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: TextField(
+                            controller: areaNameController,
+                            textCapitalization: TextCapitalization.words,
+                            decoration: const InputDecoration(
+                              labelText: 'Area Name',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 15),
 
-                              if (itemToEdit == null) {
-                                _customers.add(newItem);
-                              } else if (index != null) {
-                                _customers[index] = newItem;
+                    OutlinedButton.icon(
+                      onPressed: pickBill,
+                      icon: const Icon(Icons.camera_alt, color: Colors.purple),
+                      label: Text(billImagePath == null ? 'Upload Handwritten Bill Photo' : 'Change Bill Photo'),
+                    ),
+                    if (billImagePath != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8.0),
+                        child: Text('Image Selected: ${billImagePath!.split('/').last}', style: const TextStyle(color: Colors.green, fontSize: 12)),
+                      ),
+
+                    const SizedBox(height: 20),
+
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.grey,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                            ),
+                            onPressed: () => Navigator.pop(context),
+                            icon: const Icon(Icons.close),
+                            label: const Text('Cancel'),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.indigo.shade900,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                            ),
+                            onPressed: () {
+                              if (shopNameController.text.isNotEmpty) {
+                                setState(() {
+                                  final newItem = {
+                                    'shopName': shopNameController.text,
+                                    'contactPerson': contactPersonController.text,
+                                    'mobile': mobileController.text,
+                                    'whatsapp': whatsappController.text,
+                                    'address': addressController.text,
+                                    'cityName': cityNameController.text,
+                                    'areaName': areaNameController.text,
+                                    'balance': itemToEdit?['balance'] ?? 0.0,
+                                    'orders': itemToEdit?['orders'] ?? [],
+                                    'handwrittenBill': billImagePath,
+                                  };
+
+                                  if (itemToEdit == null) {
+                                    _customers.add(newItem);
+                                  } else if (index != null) {
+                                    _customers[index] = newItem;
+                                  }
+                                  _saveCustomerData();
+                                  _filterCustomers(_searchController.text);
+                                });
+                                Navigator.pop(context);
                               }
-                              _saveCustomerData();
-                              _filterCustomers(_searchController.text);
-                            });
-                            Navigator.pop(context);
-                          }
-                        },
-                        icon: const Icon(Icons.check),
-                        label: Text(itemToEdit == null ? 'سیو کریں' : 'اپ ڈیٹ کریں'),
-                      ),
+                            },
+                            icon: const Icon(Icons.check),
+                            label: Text(itemToEdit == null ? 'Save' : 'Update'),
+                          ),
+                        ),
+                      ],
                     ),
+                    const SizedBox(height: 20),
                   ],
                 ),
-                const SizedBox(height: 20),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         );
       },
     );
@@ -370,26 +388,23 @@ class _MyOutletScreenState extends State<MyOutletScreen> {
               width: double.infinity,
               padding: const EdgeInsets.all(16.0),
               child: Text(
-                item['shopName'] ?? 'کسٹمر آپشنز',
+                item['shopName'] ?? 'Customer Options',
                 style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
               ),
             ),
             
-            // 1. EDIT CUSTOMER DETAILS
             ListTile(
-              leading: const Icon(Icons.edit, color: Colors.orange, size: 26),
-              title: const Text('1. کسٹمر کی تفصیلات ایڈٹ کریں', style: TextStyle(fontWeight: FontWeight.bold)),
+              leading: const Icon(Icons.edit, color: Colors.orange),
+              title: const Text('1. Edit Customer Details'),
               onTap: () {
                 Navigator.pop(context);
                 _showCustomerDialog(itemToEdit: item, index: index);
               },
             ),
 
-            // 2. CREATE ORDER
             ListTile(
-              leading: const Icon(Icons.add_shopping_cart, color: Colors.blue, size: 26),
-              title: const Text('2. نیا آرڈر بنائیں', style: TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: const Text('سٹاک سے سامان منتخب کر کے بل بنائیں'),
+              leading: const Icon(Icons.add_shopping_cart, color: Colors.blue),
+              title: const Text('2. Create New Order'),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.push(
@@ -412,60 +427,51 @@ class _MyOutletScreenState extends State<MyOutletScreen> {
               },
             ),
 
-            // 3. UPLOAD HANDWRITTEN BILL PHOTO
-            ListTile(
-              leading: const Icon(Icons.camera_alt, color: Colors.purple, size: 26),
-              title: const Text('3. دستی (ہاتھ سے لکھے) بل کی تصویر اپلوڈ کریں', style: TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: Text(item['handwrittenBill'] != null ? 'بل کی تصویر سیو ہے' : 'گیلری سے تصویر منتخب کرنے کے لیے ٹیپ کریں'),
-              onTap: () {
-                Navigator.pop(context);
-                _pickHandwrittenBill(item);
-              },
-            ),
-
-            // 4. RECOVERY
             ListTile(
               leading: const Icon(Icons.account_balance_wallet, color: Colors.green),
-              title: const Text('4. ریکوری (ادائیگی کی وصولی)'),
-              subtitle: Text('موجودہ بقایا: RS ${item['balance'] ?? 0}'),
+              title: const Text('3. Recovery / Payment Received'),
+              subtitle: Text('Current Balance: RS ${item['balance'] ?? 0}'),
               onTap: () {
                 Navigator.pop(context);
                 _showRecoveryDialog(item, index);
               },
             ),
 
-            // 5. WHATSAPP MESSAGE
             ListTile(
               leading: const Icon(Icons.chat, color: Colors.teal),
-              title: const Text('5. واٹس ایپ پر پیغام بھیجیں'),
+              title: const Text('4. Send WhatsApp Message'),
               onTap: () {
                 Navigator.pop(context);
+                String num = (item['whatsapp'] != null && item['whatsapp'].toString().isNotEmpty)
+                    ? item['whatsapp']
+                    : item['mobile'];
                 _sendWhatsAppMessage(
-                  item['whatsapp'].toString().isNotEmpty ? item['whatsapp'] : item['mobile'],
-                  "السلام علیکم ${item['contactPerson']} صاحب (${item['shopName']})، امید ہے آپ خیریت سے ہوں گے۔",
+                  num,
+                  "Hello ${item['contactPerson']} (${item['shopName']}), Hope you are doing well.",
                 );
               },
             ),
 
-            // 6. INVOICE
             ListTile(
               leading: const Icon(Icons.receipt_long, color: Colors.amber),
-              title: const Text('6. انوائس اور پرانے بل دیکھیں'),
+              title: const Text('5. View Invoice & History'),
               onTap: () {
                 Navigator.pop(context);
                 _showInvoiceDialog(item);
               },
             ),
 
-            // 7. REMINDER
             ListTile(
               leading: const Icon(Icons.notifications_active, color: Colors.red),
-              title: const Text('7. ادائیگی کا یاد دہانی پیغام (Reminder)'),
+              title: const Text('6. Send Payment Reminder'),
               onTap: () {
                 Navigator.pop(context);
+                String num = (item['whatsapp'] != null && item['whatsapp'].toString().isNotEmpty)
+                    ? item['whatsapp']
+                    : item['mobile'];
                 _sendWhatsAppMessage(
-                  item['whatsapp'].toString().isNotEmpty ? item['whatsapp'] : item['mobile'],
-                  "محترم ${item['contactPerson']} صاحب (${item['shopName']})، آپ کے کھاتے کا بقایا RS ${item['balance'] ?? 0} ہے۔ براہ کرم ادائیگی کا انتظام فرما دیں۔ شکریہ!",
+                  num,
+                  "Dear ${item['contactPerson']} (${item['shopName']}), your remaining balance is RS ${item['balance'] ?? 0}. Kindly process the payment. Thank you!",
                 );
               },
             ),
@@ -482,18 +488,18 @@ class _MyOutletScreenState extends State<MyOutletScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: Text('ریکوری - ${item['shopName']}'),
+          title: Text('Recovery - ${item['shopName']}'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('موجودہ بقایا: RS ${item['balance'] ?? 0}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.red)),
+              Text('Current Balance: RS ${item['balance'] ?? 0}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.red)),
               const SizedBox(height: 15),
               TextField(
                 controller: recoveryController,
                 keyboardType: TextInputType.number,
                 decoration: const InputDecoration(
-                  labelText: 'وصول شدہ رقم (RS)',
+                  labelText: 'Amount Received (RS)',
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -502,7 +508,7 @@ class _MyOutletScreenState extends State<MyOutletScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('منسوخ'),
+              child: const Text('Cancel'),
             ),
             ElevatedButton(
               onPressed: () {
@@ -515,11 +521,11 @@ class _MyOutletScreenState extends State<MyOutletScreen> {
                   });
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('RS $received کی ریکوری محفوظ ہو گئی!')),
+                    SnackBar(content: Text('RS $received recovery saved successfully!')),
                   );
                 }
               },
-              child: const Text('ریکوری سیو کریں'),
+              child: const Text('Save Recovery'),
             ),
           ],
         );
@@ -535,33 +541,39 @@ class _MyOutletScreenState extends State<MyOutletScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: Text('انوائس ہسٹری - ${item['shopName']}'),
+          title: Text('Invoice History - ${item['shopName']}'),
           content: SizedBox(
             width: double.maxFinite,
             child: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Text('Total Outstanding Balance: RS ${item['balance'] ?? 0}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.red)),
+                  const Divider(),
                   if (billImgPath != null) ...[
-                    const Text('محفوظ شدہ دستی (Handwritten) بل:', style: TextStyle(fontWeight: FontWeight.bold)),
+                    const Text('Saved Handwritten Bill Photo:', style: TextStyle(fontWeight: FontWeight.bold)),
                     const SizedBox(height: 6),
                     Image.file(File(billImgPath), height: 180, fit: BoxFit.cover),
                     const Divider(height: 20),
                   ],
                   orders.isEmpty
-                      ? const Text('اس کسٹمر کے ڈیجیٹل آرڈرز کا ریکارڈ نہیں ہے۔')
+                      ? const Text('No digital order history found for this customer.')
                       : ListView.builder(
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
                           itemCount: orders.length,
                           itemBuilder: (context, idx) {
                             final order = orders[idx];
+                            double total = (order['total'] ?? 0.0).toDouble();
+                            double paid = (order['paid'] ?? 0.0).toDouble();
+                            double rem = total - paid;
                             return Card(
                               margin: const EdgeInsets.symmetric(vertical: 4),
                               child: ListTile(
-                                title: Text('تاریخ: ${order['date']}'),
-                                subtitle: Text('کل بل: RS ${order['total']} | وصولی: RS ${order['paid']}'),
-                                trailing: Text('بقایا: RS ${order['total'] - order['paid']}', style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                                title: Text('Date: ${order['date']}'),
+                                subtitle: Text('Total Bill: RS $total\nAmount Paid: RS $paid'),
+                                trailing: Text('Balance:\nRS $rem', textAlign: TextAlign.right, style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
                               ),
                             );
                           },
@@ -573,7 +585,7 @@ class _MyOutletScreenState extends State<MyOutletScreen> {
           actions: [
             ElevatedButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('بند کریں'),
+              child: const Text('Close'),
             ),
           ],
         );
@@ -593,7 +605,7 @@ class _MyOutletScreenState extends State<MyOutletScreen> {
               onChanged: _filterCustomers,
               textCapitalization: TextCapitalization.words,
               decoration: InputDecoration(
-                hintText: 'کسٹمر، دکان یا شہر کا نام تلاش کریں...',
+                hintText: 'Search customer, shop or city...',
                 prefixIcon: const Icon(Icons.search),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -604,7 +616,7 @@ class _MyOutletScreenState extends State<MyOutletScreen> {
           Expanded(
             child: _filteredCustomers.isEmpty
                 ? const Center(
-                    child: Text('کوئی کسٹمر نہیں ملا۔ نیا کسٹمر شامل کرنے کے لیے + پر کلک کریں۔'),
+                    child: Text('No customers found. Click + to add new.'),
                   )
                 : ListView.builder(
                     itemCount: _filteredCustomers.length,
@@ -615,16 +627,16 @@ class _MyOutletScreenState extends State<MyOutletScreen> {
                         child: ListTile(
                           onTap: () => _showCustomerDialog(itemToEdit: item, index: index),
                           onLongPress: () => _showLongPressOptions(item, index),
-                          leading: const CircleAvatar(
-                            backgroundColor: Colors.indigo,
-                            child: Icon(Icons.store, color: Colors.white),
+                          leading: CircleAvatar(
+                            backgroundColor: Colors.indigo.shade900,
+                            child: const Icon(Icons.store, color: Colors.white),
                           ),
                           title: Text(
                             item['shopName'] ?? '',
                             style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
                           subtitle: Text(
-                            'مالک: ${item['contactPerson']} | شہر: ${item['cityName']}\nبقایا: RS ${item['balance'] ?? 0}',
+                            'Owner: ${item['contactPerson']} | City: ${item['cityName']}\nBalance: RS ${item['balance'] ?? 0}',
                           ),
                           trailing: const Icon(Icons.more_vert),
                         ),
@@ -668,7 +680,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
 
   Future<void> _loadStockData() async {
     final prefs = await SharedPreferences.getInstance();
-    final String? encodedData = prefs.getString('stock_items_key_v6');
+    final String? encodedData = prefs.getString('stock_items_key_v7');
     if (encodedData != null) {
       setState(() {
         _stockItems = List<Map<String, dynamic>>.from(jsonDecode(encodedData));
@@ -679,18 +691,18 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
   Future<void> _saveStockData() async {
     final prefs = await SharedPreferences.getInstance();
     final String encodedData = jsonEncode(_stockItems);
-    await prefs.setString('stock_items_key_v6', encodedData);
+    await prefs.setString('stock_items_key_v7', encodedData);
   }
 
   Future<void> _saveSalesOrderToHistory(Map<String, dynamic> salesOrder) async {
     final prefs = await SharedPreferences.getInstance();
-    final String? encodedData = prefs.getString('sales_orders_key_v6');
+    final String? encodedData = prefs.getString('sales_orders_key_v7');
     List<Map<String, dynamic>> allSales = [];
     if (encodedData != null) {
       allSales = List<Map<String, dynamic>>.from(jsonDecode(encodedData));
     }
     allSales.add(salesOrder);
-    await prefs.setString('sales_orders_key_v6', jsonEncode(allSales));
+    await prefs.setString('sales_orders_key_v7', jsonEncode(allSales));
   }
 
   void _addItemToCart(Map<String, dynamic> stockItem, int orderedCartons, int orderedPackets) {
@@ -736,29 +748,29 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: Text('آرڈر: ${stockItem['name']}'),
+          title: Text('Order: ${stockItem['name']}'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('موجودہ کاٹن: ${stockItem['availCartons']} | ریٹ: RS ${stockItem['cartonRate']}'),
+              Text('Available Cartons: ${stockItem['availCartons']} | Rate: RS ${stockItem['cartonRate']}'),
               TextField(
                 controller: cartonsController,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'کاٹن کی تعداد'),
+                decoration: const InputDecoration(labelText: 'Quantity of Cartons'),
               ),
               const SizedBox(height: 10),
-              Text('موجودہ پیکٹ: ${stockItem['availPackets']} | ریٹ: RS ${stockItem['packetRate']}'),
+              Text('Available Packets: ${stockItem['availPackets']} | Rate: RS ${stockItem['packetRate']}'),
               TextField(
                 controller: packetsController,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'پیکٹ کی تعداد'),
+                decoration: const InputDecoration(labelText: 'Quantity of Packets'),
               ),
             ],
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('منسوخ'),
+              child: const Text('Cancel'),
             ),
             ElevatedButton(
               onPressed: () {
@@ -769,7 +781,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
                   Navigator.pop(context);
                 }
               },
-              child: const Text('آرڈر میں شامل کریں'),
+              child: const Text('Add to Order'),
             ),
           ],
         );
@@ -785,8 +797,8 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('نیا آرڈر - ${widget.customer['shopName']}'),
-        backgroundColor: Colors.blueAccent,
+        title: Text('New Order - ${widget.customer['shopName']}'),
+        backgroundColor: Colors.indigo.shade900,
         foregroundColor: Colors.white,
       ),
       body: Column(
@@ -798,14 +810,14 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
               children: [
                 Icon(Icons.touch_app, color: Colors.blue),
                 SizedBox(width: 8),
-                Text('سامان منتخب کرنے کے لیے نیچے آئٹم پر کلک کریں:', style: TextStyle(fontWeight: FontWeight.bold)),
+                Text('Tap on items below to select stock:', style: TextStyle(fontWeight: FontWeight.bold)),
               ],
             ),
           ),
           Expanded(
             flex: 2,
             child: _stockItems.isEmpty
-                ? const Center(child: Text('سٹاک میں کوئی سامان موجود نہیں ہے۔'))
+                ? const Center(child: Text('No stock items available.'))
                 : ListView.builder(
                     itemCount: _stockItems.length,
                     itemBuilder: (context, index) {
@@ -814,7 +826,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
                         margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         child: ListTile(
                           title: Text('${item['name']} (${item['size']})', style: const TextStyle(fontWeight: FontWeight.bold)),
-                          subtitle: Text('کاٹن باقی: ${item['availCartons']} | پیکٹ باقی: ${item['availPackets']}'),
+                          subtitle: Text('Cartons: ${item['availCartons']} | Packets: ${item['availPackets']}'),
                           trailing: const Icon(Icons.add_circle, color: Colors.green, size: 30),
                           onTap: () => _showAddToCartDialog(item),
                         ),
@@ -823,11 +835,11 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
                   ),
           ),
           const Divider(thickness: 2),
-          const Text('آرڈر میں شامل سامان:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          const Text('Items Added to Order:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           Expanded(
             flex: 1,
             child: _cartItems.isEmpty
-                ? const Center(child: Text('ابھی تک کوئی آئٹم شامل نہیں کیا گیا۔'))
+                ? const Center(child: Text('No items added yet.'))
                 : ListView.builder(
                     itemCount: _cartItems.length,
                     itemBuilder: (context, idx) {
@@ -835,7 +847,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
                       return ListTile(
                         dense: true,
                         title: Text('${cart['name']}'),
-                        subtitle: Text('کاٹن: ${cart['cartons']} | پیکٹ: ${cart['packets']}'),
+                        subtitle: Text('Cartons: ${cart['cartons']} | Packets: ${cart['packets']}'),
                         trailing: Text('RS ${cart['total']}', style: const TextStyle(fontWeight: FontWeight.bold)),
                       );
                     },
@@ -852,7 +864,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('کل بل:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      const Text('Total Bill Amount:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                       Text('RS $_totalBill', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue)),
                     ],
                   ),
@@ -862,7 +874,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
                     keyboardType: TextInputType.number,
                     onChanged: (val) => setState(() {}),
                     decoration: const InputDecoration(
-                      labelText: 'وصول شدہ رقم (RS)',
+                      labelText: 'Amount Paid / Received (RS)',
                       border: OutlineInputBorder(),
                     ),
                   ),
@@ -870,7 +882,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('بقایا رقم:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      const Text('Remaining Balance:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                       Text('RS $remaining', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.red)),
                     ],
                   ),
@@ -901,12 +913,12 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
                               if (mounted) {
                                 Navigator.pop(context);
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('آرڈر محفوظ ہو گیا اور ہسٹری میں منتقل کر دیا گیا!')),
+                                  const SnackBar(content: Text('Order saved successfully!')),
                                 );
                               }
                             },
                       icon: const Icon(Icons.check_circle),
-                      label: const Text('آرڈر سیو کریں', style: TextStyle(fontSize: 16)),
+                      label: const Text('Save Order', style: TextStyle(fontSize: 16)),
                     ),
                   ),
                 ],
@@ -938,7 +950,7 @@ class _SalesOrderScreenState extends State<SalesOrderScreen> {
 
   Future<void> _loadSalesHistory() async {
     final prefs = await SharedPreferences.getInstance();
-    final String? encodedData = prefs.getString('sales_orders_key_v6');
+    final String? encodedData = prefs.getString('sales_orders_key_v7');
     if (encodedData != null) {
       setState(() {
         _allSales = List<Map<String, dynamic>>.from(jsonDecode(encodedData));
@@ -955,6 +967,7 @@ class _SalesOrderScreenState extends State<SalesOrderScreen> {
     int totalOrdersToday = todaySales.length;
     Set<String> visitedShops = todaySales.map((s) => s['shopName'].toString()).toSet();
     double totalDailyAmount = todaySales.fold(0.0, (sum, item) => sum + (item['total'] ?? 0.0));
+    double totalPaidToday = todaySales.fold(0.0, (sum, item) => sum + (item['paid'] ?? 0.0));
 
     return Scaffold(
       body: Column(
@@ -974,15 +987,27 @@ class _SalesOrderScreenState extends State<SalesOrderScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('روزانہ کی کارکردگی ($todayDate)', style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                Text('Daily Summary ($todayDate)', style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 12),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    _buildStatTile('دکانیں جہاں وزٹ کیا', '${visitedShops.length}', Icons.store),
-                    _buildStatTile('کل آرڈرز', '$totalOrdersToday', Icons.shopping_bag),
-                    _buildStatTile('کل سیلز', 'RS ${totalDailyAmount.toInt()}', Icons.attach_money),
+                    _buildStatTile('Shops Visited', '${visitedShops.length}', Icons.store),
+                    _buildStatTile('Total Orders', '$totalOrdersToday', Icons.shopping_bag),
+                    _buildStatTile('Total Sales', 'RS ${totalDailyAmount.toInt()}', Icons.attach_money),
                   ],
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(8)),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Total Recovered Amount:', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      Text('RS ${totalPaidToday.toInt()}', style: const TextStyle(color: Colors.lightGreenAccent, fontWeight: FontWeight.bold, fontSize: 16)),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -994,14 +1019,14 @@ class _SalesOrderScreenState extends State<SalesOrderScreen> {
               children: [
                 Icon(Icons.history, color: Colors.indigo),
                 SizedBox(width: 8),
-                Text('سیلز آرڈرز ہسٹری:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                Text('Sales Orders History:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               ],
             ),
           ),
 
           Expanded(
             child: _allSales.isEmpty
-                ? const Center(child: Text('ابھی تک کوئی سیلز آرڈر نہیں بنا۔'))
+                ? const Center(child: Text('No sales history recorded.'))
                 : ListView.builder(
                     itemCount: _allSales.length,
                     itemBuilder: (indexContext, index) {
@@ -1017,10 +1042,11 @@ class _SalesOrderScreenState extends State<SalesOrderScreen> {
                             '${sale['shopName']} (${sale['cityName']})',
                             style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
-                          subtitle: Text('تاریخ: ${sale['date']} | وصول شدہ: RS ${sale['paid']}'),
+                          subtitle: Text('Date: ${sale['date']}\nPaid: RS ${sale['paid']}'),
                           trailing: Text(
-                            'RS ${sale['total']}',
-                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.indigo),
+                            'Total:\nRS ${sale['total']}',
+                            textAlign: TextAlign.right,
+                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.indigo),
                           ),
                         ),
                       );
@@ -1035,10 +1061,10 @@ class _SalesOrderScreenState extends State<SalesOrderScreen> {
   Widget _buildStatTile(String label, String value, IconData icon) {
     return Column(
       children: [
-        Icon(icon, color: Colors.white, size: 28),
+        Icon(icon, color: Colors.white, size: 24),
         const SizedBox(height: 4),
-        Text(value, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+        Text(value, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 11)),
       ],
     );
   }
@@ -1067,15 +1093,15 @@ class _StockScreenState extends State<StockScreen> {
   Future<void> _saveStockData() async {
     final prefs = await SharedPreferences.getInstance();
     final String encodedData = jsonEncode(_stockItems);
-    await prefs.setString('stock_items_key_v6', encodedData);
+    await prefs.setString('stock_items_key_v7', encodedData);
   }
 
   Future<void> _loadStockData() async {
     final prefs = await SharedPreferences.getInstance();
-    final String? encodedData = prefs.getString('stock_items_key_v6');
+    final String? encodedData = prefs.getString('stock_items_key_v7');
     if (encodedData != null) {
       setState(() {
-        _stockItems = List<Map<String, dynamic>>.from(jsonDecode(encodedData));
+        _stockItems = List<Map<String, dynamic>>::from(jsonDecode(encodedData));
         _filteredItems = _stockItems;
       });
     }
@@ -1104,7 +1130,7 @@ class _StockScreenState extends State<StockScreen> {
           children: [
             ListTile(
               leading: const Icon(Icons.edit, color: Colors.orange),
-              title: const Text('آئٹم ایڈٹ کریں'),
+              title: const Text('Edit Item'),
               onTap: () {
                 Navigator.pop(context);
                 _showStockDialog(itemToEdit: item, index: index);
@@ -1112,7 +1138,7 @@ class _StockScreenState extends State<StockScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.delete, color: Colors.red),
-              title: const Text('آئٹم ختم کریں (Delete)'),
+              title: const Text('Delete Item'),
               onTap: () {
                 Navigator.pop(context);
                 setState(() {
@@ -1170,7 +1196,7 @@ class _StockScreenState extends State<StockScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      itemToEdit == null ? 'نیا سٹاک شامل کریں' : 'سٹاک کی تفصیلات ایڈٹ کریں',
+                      itemToEdit == null ? 'Add New Stock' : 'Edit Stock Details',
                       style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 15),
@@ -1194,7 +1220,7 @@ class _StockScreenState extends State<StockScreen> {
                       controller: nameController,
                       textCapitalization: TextCapitalization.words,
                       decoration: const InputDecoration(
-                        labelText: 'پروڈکٹ کا نام',
+                        labelText: 'Product Name',
                         border: OutlineInputBorder(),
                       ),
                     ),
@@ -1203,7 +1229,7 @@ class _StockScreenState extends State<StockScreen> {
                       controller: sizeController,
                       textCapitalization: TextCapitalization.words,
                       decoration: const InputDecoration(
-                        labelText: 'سائز (Size)',
+                        labelText: 'Size',
                         border: OutlineInputBorder(),
                       ),
                     ),
@@ -1215,7 +1241,7 @@ class _StockScreenState extends State<StockScreen> {
                             controller: cartonRateController,
                             keyboardType: TextInputType.number,
                             decoration: const InputDecoration(
-                              labelText: 'کاٹن کا ریٹ',
+                              labelText: 'Carton Rate',
                               border: OutlineInputBorder(),
                             ),
                           ),
@@ -1226,7 +1252,7 @@ class _StockScreenState extends State<StockScreen> {
                             controller: cartonPackingController,
                             keyboardType: TextInputType.number,
                             decoration: const InputDecoration(
-                              labelText: 'کاٹن پیکنگ (پیکٹ فی کاٹن)',
+                              labelText: 'Packets per Carton',
                               border: OutlineInputBorder(),
                             ),
                           ),
@@ -1238,7 +1264,7 @@ class _StockScreenState extends State<StockScreen> {
                       controller: availCartonsController,
                       keyboardType: TextInputType.number,
                       decoration: const InputDecoration(
-                        labelText: 'دستیاب کاٹن',
+                        labelText: 'Available Cartons',
                         border: OutlineInputBorder(),
                       ),
                     ),
@@ -1250,7 +1276,7 @@ class _StockScreenState extends State<StockScreen> {
                             controller: packetRateController,
                             keyboardType: TextInputType.number,
                             decoration: const InputDecoration(
-                              labelText: 'پیکٹ / یونٹ کا ریٹ',
+                              labelText: 'Packet / Unit Rate',
                               border: OutlineInputBorder(),
                             ),
                           ),
@@ -1261,7 +1287,7 @@ class _StockScreenState extends State<StockScreen> {
                             controller: pcsPerPacketController,
                             keyboardType: TextInputType.number,
                             decoration: const InputDecoration(
-                              labelText: 'پیس فی پیکٹ',
+                              labelText: 'Pieces per Packet',
                               border: OutlineInputBorder(),
                             ),
                           ),
@@ -1273,7 +1299,7 @@ class _StockScreenState extends State<StockScreen> {
                       controller: availPacketsController,
                       keyboardType: TextInputType.number,
                       decoration: const InputDecoration(
-                        labelText: 'دستیاب پیکٹ / یونٹ',
+                        labelText: 'Available Packets / Units',
                         border: OutlineInputBorder(),
                       ),
                     ),
@@ -1282,7 +1308,7 @@ class _StockScreenState extends State<StockScreen> {
                       width: double.infinity,
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blueAccent,
+                          backgroundColor: Colors.indigo.shade900,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                         ),
@@ -1313,7 +1339,7 @@ class _StockScreenState extends State<StockScreen> {
                           }
                         },
                         child: Text(
-                          itemToEdit == null ? 'سیو کریں' : 'اپ ڈیٹ کریں',
+                          itemToEdit == null ? 'Save' : 'Update',
                           style: const TextStyle(fontSize: 16),
                         ),
                       ),
@@ -1341,7 +1367,7 @@ class _StockScreenState extends State<StockScreen> {
               onChanged: _filterStock,
               textCapitalization: TextCapitalization.words,
               decoration: InputDecoration(
-                hintText: 'پروڈکٹ تلاش کریں...',
+                hintText: 'Search stock item...',
                 prefixIcon: const Icon(Icons.search),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -1352,7 +1378,7 @@ class _StockScreenState extends State<StockScreen> {
           Expanded(
             child: _filteredItems.isEmpty
                 ? const Center(
-                    child: Text('کوئی سٹاک موجود نہیں ہے۔ نیا سٹاک شامل کرنے کے لیے + پر کلک کریں۔'),
+                    child: Text('No stock items available. Click + to add new.'),
                   )
                 : ListView.builder(
                     itemCount: _filteredItems.length,
@@ -1364,7 +1390,7 @@ class _StockScreenState extends State<StockScreen> {
                         child: ListTile(
                           onLongPress: () => _showItemOptions(item, index),
                           leading: CircleAvatar(
-                            backgroundColor: Colors.blueAccent,
+                            backgroundColor: Colors.indigo.shade900,
                             backgroundImage: imagePath != null ? FileImage(File(imagePath)) : null,
                             child: imagePath == null
                                 ? const Icon(Icons.inventory_2, color: Colors.white)
@@ -1378,8 +1404,8 @@ class _StockScreenState extends State<StockScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const SizedBox(height: 4),
-                              Text('کاٹن باقی: ${item['availCartons']} (ریٹ: ${item['cartonRate']})'),
-                              Text('پیکٹ باقی: ${item['availPackets']} (ریٹ: ${item['packetRate']})'),
+                              Text('Cartons Left: ${item['availCartons']} (Rate: RS ${item['cartonRate']})'),
+                              Text('Packets Left: ${item['availPackets']} (Rate: RS ${item['packetRate']})'),
                             ],
                           ),
                         ),
@@ -1390,7 +1416,7 @@ class _StockScreenState extends State<StockScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.blueAccent,
+        backgroundColor: Colors.indigo.shade900,
         onPressed: () => _showStockDialog(),
         child: const Icon(Icons.add, color: Colors.white),
       ),
