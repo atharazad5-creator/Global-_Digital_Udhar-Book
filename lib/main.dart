@@ -1192,7 +1192,7 @@ class _StockScreenState extends State<StockScreen> {
               ),
               child: SingleChildScrollView(
                 child: Column(
-                  mainAxisSize: MinAxisSize.min,
+                  mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
