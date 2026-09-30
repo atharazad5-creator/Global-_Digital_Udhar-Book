@@ -25,6 +25,7 @@ class GlobalDigitalKhataApp extends StatelessWidget {
 // Data Models
 class StockItem {
   String name;
+  String size;
   int cartons;
   int packetsPerCarton;
   int loosePackets;
@@ -32,6 +33,7 @@ class StockItem {
 
   StockItem({
     required this.name,
+    required this.size,
     required this.cartons,
     required this.packetsPerCarton,
     required this.loosePackets,
@@ -43,10 +45,16 @@ class StockItem {
 
 class InvoiceItem {
   final String name;
+  final String size;
   final int qty;
   final double price;
 
-  InvoiceItem({required this.name, required this.qty, required this.price});
+  InvoiceItem({
+    required this.name,
+    required this.size,
+    required this.qty,
+    required this.price,
+  });
 
   double get total => qty * price;
 }
@@ -69,34 +77,35 @@ class Outlet {
   double get balance => totalBill - paidAmount;
 }
 
-// Global Preserved Data
+// Global Preserved Data - Rocket Pamper Stock & Ghousia Store Outlets
+List<StockItem> globalStock = [
+  StockItem(name: "Rocket Pamper", size: "Newborn (NB)", cartons: 25, packetsPerCarton: 8, loosePackets: 0, pricePerCarton: 4800.0),
+  StockItem(name: "Rocket Pamper", size: "Small (S)", cartons: 25, packetsPerCarton: 8, loosePackets: 0, pricePerCarton: 5200.0),
+  StockItem(name: "Rocket Pamper", size: "Medium (M)", cartons: 25, packetsPerCarton: 8, loosePackets: 0, pricePerCarton: 5600.0),
+  StockItem(name: "Rocket Pamper", size: "Large (L)", cartons: 25, packetsPerCarton: 8, loosePackets: 0, pricePerCarton: 6000.0),
+];
+
 List<Outlet> globalOutlets = [
   Outlet(
-    name: "Shah General Store",
+    name: "Ghousia Atta Chakki",
     phone: "+923001234567",
     totalBill: 12100.0,
     paidAmount: 5000.0,
     items: [
-      InvoiceItem(name: "Cooking Oil 5L", qty: 2, price: 3000.0),
-      InvoiceItem(name: "Sugar 5kg", qty: 5, price: 1000.0),
-      InvoiceItem(name: "Tea Pack 950g", qty: 1, price: 1100.0),
+      InvoiceItem(name: "Rocket Pamper", size: "Newborn (NB)", qty: 1, price: 4800.0),
+      InvoiceItem(name: "Rocket Pamper", size: "Medium (M)", qty: 1, price: 5600.0),
+      InvoiceItem(name: "Rocket Pamper Loose", size: "Small (S)", qty: 2, price: 850.0),
     ],
   ),
   Outlet(
-    name: "Kashif Traders",
+    name: "ABC Traders",
     phone: "+923009876543",
-    totalBill: 8000.0,
-    paidAmount: 8000.0, // Fully Paid - Blue Color
+    totalBill: 10400.0,
+    paidAmount: 10400.0, // Fully Paid -> Shows Blue
     items: [
-      InvoiceItem(name: "Rice Special 10kg", qty: 4, price: 2000.0),
+      InvoiceItem(name: "Rocket Pamper", size: "Small (S)", qty: 2, price: 5200.0),
     ],
   ),
-];
-
-List<StockItem> globalStock = [
-  StockItem(name: "Cooking Oil 5L", cartons: 10, packetsPerCarton: 4, loosePackets: 2, pricePerCarton: 12000.0),
-  StockItem(name: "Sugar 5kg", cartons: 20, packetsPerCarton: 10, loosePackets: 0, pricePerCarton: 10000.0),
-  StockItem(name: "Tea Pack 950g", cartons: 5, packetsPerCarton: 12, loosePackets: 5, pricePerCarton: 13200.0),
 ];
 
 // Helper: Convert Number to Words
@@ -145,33 +154,33 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           children: [
             const UserAccountsDrawerHeader(
               accountName: Text("Global Digital Khata", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              accountEmail: Text("Manage Outlets, Stock & Invoices"),
+              accountEmail: Text("Rocket Pamper Distribution"),
               currentAccountPicture: CircleAvatar(
                 backgroundColor: Colors.white,
-                child: Icon(Icons.store, size: 40, color: Colors.blueAccent),
+                child: Icon(Icons.child_friendly, size: 40, color: Colors.blueAccent),
               ),
               decoration: BoxDecoration(color: Colors.blueAccent),
             ),
             ListTile(
-              leading: const Icon(Icons.people, color: Colors.blueAccent),
+              leading: const Icon(Icons.store, color: Colors.blueAccent),
               title: const Text('My Outlets (دکانیں)'),
               selected: _selectedIndex == 0,
               onTap: () => _onSelectItem(0),
             ),
             ListTile(
-              leading: const Icon(Icons.inventory, color: Colors.blueAccent),
+              leading: const Icon(Icons.inventory_2, color: Colors.blueAccent),
               title: const Text('Stock Management (اسٹاک)'),
               selected: _selectedIndex == 1,
               onTap: () => _onSelectItem(1),
             ),
             ListTile(
-              leading: const Icon(Icons.shopping_cart, color: Colors.blueAccent),
+              leading: const Icon(Icons.add_shopping_cart, color: Colors.blueAccent),
               title: const Text('Sales Order (فروخت)'),
               selected: _selectedIndex == 2,
               onTap: () => _onSelectItem(2),
             ),
             ListTile(
-              leading: const Icon(Icons.history, color: Colors.blueAccent),
+              leading: const Icon(Icons.receipt_long, color: Colors.blueAccent),
               title: const Text('Invoice History (انوائس ہسٹری)'),
               selected: _selectedIndex == 3,
               onTap: () => _onSelectItem(3),
@@ -248,7 +257,7 @@ class OutletsScreen extends StatelessWidget {
   }
 }
 
-// 2. STOCK MANAGEMENT SCREEN
+// 2. STOCK MANAGEMENT SCREEN (ROCKET PAMPER SIZES)
 class StockScreen extends StatelessWidget {
   const StockScreen({super.key});
 
@@ -264,7 +273,8 @@ class StockScreen extends StatelessWidget {
             elevation: 2,
             margin: const EdgeInsets.symmetric(vertical: 6),
             child: ListTile(
-              title: Text(stock.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              leading: const Icon(Icons.inventory, color: Colors.blueAccent),
+              title: Text("${stock.name} - ${stock.size}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               subtitle: Text(
                 "Cartons: ${stock.cartons} | Loose: ${stock.loosePackets}\nTotal Packets: ${stock.totalPackets}",
               ),
@@ -300,8 +310,8 @@ class SalesOrderScreen extends StatelessWidget {
                     Icon(Icons.add_shopping_cart, color: Colors.white, size: 30),
                     SizedBox(width: 12),
                     Text(
-                      "Create New Sales Order",
-                      style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                      "Create Sales Order (Rocket Pamper)",
+                      style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
@@ -315,13 +325,13 @@ class SalesOrderScreen extends StatelessWidget {
                   final item = globalStock[index];
                   return Card(
                     child: ListTile(
-                      title: Text(item.name),
-                      subtitle: Text("Price: Rs. ${item.pricePerCarton.toStringAsFixed(0)}"),
+                      title: Text("${item.name} (${item.size})"),
+                      subtitle: Text("Price: Rs. ${item.pricePerCarton.toStringAsFixed(0)} / Ctn"),
                       trailing: IconButton(
                         icon: const Icon(Icons.add_circle, color: Colors.blueAccent),
                         onPressed: () {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text("${item.name} Order cart me add ho gaya")),
+                            SnackBar(content: Text("${item.name} ${item.size} Order cart me add ho gaya")),
                           );
                         },
                       ),
@@ -383,7 +393,7 @@ class InvoiceHistoryDetailScreen extends StatelessWidget {
     message.writeln("*Items Purchased:*");
     
     for (var item in outlet.items) {
-      message.writeln("• ${item.name} x${item.qty} @ Rs.${item.price.toStringAsFixed(0)} = Rs.${item.total.toStringAsFixed(0)}");
+      message.writeln("• ${item.name} (${item.size}) x${item.qty} @ Rs.${item.price.toStringAsFixed(0)} = Rs.${item.total.toStringAsFixed(0)}");
     }
     
     message.writeln("--------------------------");
@@ -470,7 +480,7 @@ class InvoiceHistoryDetailScreen extends StatelessWidget {
                   return Card(
                     margin: const EdgeInsets.symmetric(vertical: 4),
                     child: ListTile(
-                      title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                      title: Text("${item.name} (${item.size})", style: const TextStyle(fontWeight: FontWeight.w600)),
                       subtitle: Text("Qty: ${item.qty} × Rs. ${item.price.toStringAsFixed(0)}"),
                       trailing: Text(
                         "Rs. ${item.total.toStringAsFixed(0)}",
