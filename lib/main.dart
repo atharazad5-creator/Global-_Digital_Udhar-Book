@@ -28,19 +28,21 @@ class StockItem {
   String size;
   int cartons;
   int packetsPerCarton;
-  int loosePackets;
-  double pricePerCarton;
+  int looseUnits;
+  double unitRate;
 
   StockItem({
     required this.name,
     required this.size,
     required this.cartons,
     required this.packetsPerCarton,
-    required this.loosePackets,
-    required this.pricePerCarton,
+    required this.looseUnits,
+    required this.unitRate,
   });
 
-  int get totalPackets => (cartons * packetsPerCarton) + loosePackets;
+  // Auto Calculations
+  double get cartonRate => unitRate * packetsPerCarton;
+  int get totalUnits => (cartons * packetsPerCarton) + looseUnits;
 }
 
 class InvoiceItem {
@@ -77,12 +79,40 @@ class Outlet {
   double get balance => totalBill - paidAmount;
 }
 
-// Global Preserved Data - Stock & Outlets
+// Global Preserved Data
 List<StockItem> globalStock = [
-  StockItem(name: "Rocket Pamper", size: "Newborn (NB)", cartons: 25, packetsPerCarton: 8, loosePackets: 0, pricePerCarton: 4800.0),
-  StockItem(name: "Rocket Pamper", size: "Small (S)", cartons: 0, packetsPerCarton: 8, loosePackets: 0, pricePerCarton: 5200.0), // Zero Stock Test
-  StockItem(name: "Rocket Pamper", size: "Medium (M)", cartons: 25, packetsPerCarton: 8, loosePackets: 0, pricePerCarton: 5600.0),
-  StockItem(name: "Rocket Pamper", size: "Large (L)", cartons: 25, packetsPerCarton: 8, loosePackets: 0, pricePerCarton: 6000.0),
+  StockItem(
+    name: "Rocket Pamper",
+    size: "Newborn (NB)",
+    cartons: 25,
+    packetsPerCarton: 8,
+    looseUnits: 10,
+    unitRate: 600.0,
+  ),
+  StockItem(
+    name: "Rocket Pamper",
+    size: "Small (S)",
+    cartons: 0,
+    packetsPerCarton: 8,
+    looseUnits: 0,
+    unitRate: 650.0,
+  ),
+  StockItem(
+    name: "Rocket Pamper",
+    size: "Medium (M)",
+    cartons: 25,
+    packetsPerCarton: 8,
+    looseUnits: 5,
+    unitRate: 700.0,
+  ),
+  StockItem(
+    name: "Rocket Pamper",
+    size: "Large (L)",
+    cartons: 25,
+    packetsPerCarton: 8,
+    looseUnits: 0,
+    unitRate: 750.0,
+  ),
 ];
 
 List<Outlet> globalOutlets = [
@@ -94,14 +124,13 @@ List<Outlet> globalOutlets = [
     items: [
       InvoiceItem(name: "Rocket Pamper", size: "Newborn (NB)", qty: 1, price: 4800.0),
       InvoiceItem(name: "Rocket Pamper", size: "Medium (M)", qty: 1, price: 5600.0),
-      InvoiceItem(name: "Rocket Pamper Loose", size: "Small (S)", qty: 2, price: 850.0),
     ],
   ),
   Outlet(
     name: "ABC Traders",
     phone: "+923009876543",
     totalBill: 10400.0,
-    paidAmount: 10400.0, // Fully Paid -> Blue Color
+    paidAmount: 10400.0,
     items: [
       InvoiceItem(name: "Rocket Pamper", size: "Small (S)", qty: 2, price: 5200.0),
     ],
@@ -124,7 +153,7 @@ class MainNavigationScreen extends StatefulWidget {
 }
 
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
-  int _selectedIndex = 0;
+  int _selectedIndex = 1; // Default to Stock Screen
 
   final List<Widget> _screens = [
     const OutletsScreen(),
@@ -137,7 +166,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     setState(() {
       _selectedIndex = index;
     });
-    Navigator.of(context).pop(); // Close Drawer
+    Navigator.of(context).pop();
   }
 
   @override
@@ -206,7 +235,6 @@ class OutletsScreen extends StatelessWidget {
         itemBuilder: (context, index) {
           final outlet = globalOutlets[index];
           final double balance = outlet.balance;
-          // Rule: Red if balance > 0, Blue if balance == 0
           final Color balanceColor = balance > 0 ? Colors.red : Colors.blue;
 
           return Card(
@@ -257,7 +285,7 @@ class OutletsScreen extends StatelessWidget {
   }
 }
 
-// 2. STOCK MANAGEMENT SCREEN WITH ADD BUTTON & ZERO STOCK COLOR LOGIC
+// 2. STOCK MANAGEMENT SCREEN WITH AUTO-CALCULATION & FORMAT 25/8
 class StockScreen extends StatefulWidget {
   const StockScreen({super.key});
 
@@ -266,54 +294,140 @@ class StockScreen extends StatefulWidget {
 }
 
 class _StockScreenState extends State<StockScreen> {
-  void _addNewStockDialog() {
-    final nameController = TextEditingController();
-    final sizeController = TextEditingController();
-    final cartonsController = TextEditingController();
-    final priceController = TextEditingController();
+  TextEditingController searchController = TextEditingController();
+  String searchQuery = "";
+
+  void _addOrEditStockDialog([StockItem? itemToEdit]) {
+    final nameController = TextEditingController(text: itemToEdit?.name ?? "");
+    final sizeController = TextEditingController(text: itemToEdit?.size ?? "");
+    final cartonsController = TextEditingController(text: itemToEdit != null ? itemToEdit.cartons.toString() : "0");
+    final pcsPerCartonController = TextEditingController(text: itemToEdit != null ? itemToEdit.packetsPerCarton.toString() : "8");
+    final looseUnitsController = TextEditingController(text: itemToEdit != null ? itemToEdit.looseUnits.toString() : "0");
+    final unitRateController = TextEditingController(text: itemToEdit != null ? itemToEdit.unitRate.toString() : "0");
+
+    double calculatedCartonRate = itemToEdit != null ? itemToEdit.cartonRate : 0.0;
 
     showDialog(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          title: const Text("Add New Stock Item"),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(controller: nameController, decoration: const InputDecoration(labelText: "Item Name")),
-                TextField(controller: sizeController, decoration: const InputDecoration(labelText: "Size (e.g. Small/Medium)")),
-                TextField(controller: cartonsController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: "Cartons Quantity")),
-                TextField(controller: priceController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: "Price Per Carton")),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Cancel"),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                if (nameController.text.isNotEmpty) {
-                  setState(() {
-                    globalStock.add(
-                      StockItem(
-                        name: nameController.text,
-                        size: sizeController.text.isEmpty ? "Standard" : sizeController.text,
-                        cartons: int.tryParse(cartonsController.text) ?? 0,
-                        packetsPerCarton: 8,
-                        loosePackets: 0,
-                        pricePerCarton: double.tryParse(priceController.text) ?? 0.0,
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            void updateCalculations() {
+              int pcsPerCarton = int.tryParse(pcsPerCartonController.text) ?? 0;
+              double unitRate = double.tryParse(unitRateController.text) ?? 0.0;
+              setDialogState(() {
+                calculatedCartonRate = pcsPerCarton * unitRate;
+              });
+            }
+
+            return AlertDialog(
+              title: Text(itemToEdit == null ? "Add New Stock Item" : "Edit Stock Item"),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: nameController,
+                      decoration: const InputDecoration(labelText: "Item Name"),
+                    ),
+                    TextField(
+                      controller: sizeController,
+                      decoration: const InputDecoration(labelText: "Size (e.g. Newborn / Small)"),
+                    ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: cartonsController,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(labelText: "Cartons Quantity"),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: TextField(
+                            controller: pcsPerCartonController,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(labelText: "Pcs/Packets per Carton"),
+                            onChanged: (_) => updateCalculations(),
+                          ),
+                        ),
+                      ],
+                    ),
+                    TextField(
+                      controller: looseUnitsController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(labelText: "Loose Packets/Units Quantity"),
+                    ),
+                    TextField(
+                      controller: unitRateController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(labelText: "Packet/Unit Rate (Rs)"),
+                      onChanged: (_) => updateCalculations(),
+                    ),
+                    const SizedBox(height: 15),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                    );
-                  });
-                  Navigator.pop(context);
-                }
-              },
-              child: const Text("Add Item"),
-            ),
-          ],
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text("Calculated Carton Rate:", style: TextStyle(fontWeight: FontWeight.bold)),
+                          Text(
+                            "Rs. ${calculatedCartonRate.toStringAsFixed(0)}",
+                            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blueAccent, fontSize: 16),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text("Cancel"),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    if (nameController.text.isNotEmpty) {
+                      setState(() {
+                        int ctn = int.tryParse(cartonsController.text) ?? 0;
+                        int pcsPerCtn = int.tryParse(pcsPerCartonController.text) ?? 8;
+                        int loose = int.tryParse(looseUnitsController.text) ?? 0;
+                        double uRate = double.tryParse(unitRateController.text) ?? 0.0;
+
+                        if (itemToEdit == null) {
+                          globalStock.add(
+                            StockItem(
+                              name: nameController.text,
+                              size: sizeController.text.isEmpty ? "Standard" : sizeController.text,
+                              cartons: ctn,
+                              packetsPerCarton: pcsPerCtn,
+                              looseUnits: loose,
+                              unitRate: uRate,
+                            ),
+                          );
+                        } else {
+                          itemToEdit.name = nameController.text;
+                          itemToEdit.size = sizeController.text;
+                          itemToEdit.cartons = ctn;
+                          itemToEdit.packetsPerCarton = pcsPerCtn;
+                          itemToEdit.looseUnits = loose;
+                          itemToEdit.unitRate = uRate;
+                        }
+                      });
+                      Navigator.pop(context);
+                    }
+                  },
+                  child: Text(itemToEdit == null ? "Add Item" : "Save Changes"),
+                ),
+              ],
+            );
+          },
         );
       },
     );
@@ -321,49 +435,162 @@ class _StockScreenState extends State<StockScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: ListView.builder(
-        padding: const EdgeInsets.all(12),
-        itemCount: globalStock.length,
-        itemBuilder: (context, index) {
-          final stock = globalStock[index];
-          final bool isZeroStock = stock.cartons == 0 && stock.loosePackets == 0;
+    // Sort Alphabetically
+    List<StockItem> sortedStock = List.from(globalStock);
+    sortedStock.sort((a, b) {
+      int nameComp = a.name.toLowerCase().compareTo(b.name.toLowerCase());
+      if (nameComp != 0) return nameComp;
+      return a.size.toLowerCase().compareTo(b.size.toLowerCase());
+    });
 
-          return Card(
-            elevation: 2,
-            margin: const EdgeInsets.symmetric(vertical: 6),
-            child: ListTile(
-              leading: Icon(
-                Icons.inventory_2,
-                color: isZeroStock ? Colors.red : Colors.blueAccent,
+    // Search Filter
+    List<StockItem> filteredStock = sortedStock.where((item) {
+      String fullQuery = "${item.name} ${item.size}".toLowerCase();
+      return fullQuery.contains(searchQuery.toLowerCase());
+    }).toList();
+
+    return Scaffold(
+      body: Column(
+        children: [
+          // Search Bar
+          Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: TextField(
+              controller: searchController,
+              decoration: InputDecoration(
+                hintText: "Search stock items...",
+                prefixIcon: const Icon(Icons.search, color: Colors.blueAccent),
+                suffixIcon: searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          setState(() {
+                            searchController.clear();
+                            searchQuery = "";
+                          });
+                        },
+                      )
+                    : null,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
               ),
-              title: Text(
-                "${stock.name} - ${stock.size}",
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                  color: isZeroStock ? Colors.red : Colors.black,
-                ),
-              ),
-              subtitle: Text(
-                isZeroStock
-                    ? "OUT OF STOCK (0 Cartons)"
-                    : "Cartons: ${stock.cartons} | Loose: ${stock.loosePackets}\nTotal Packets: ${stock.totalPackets}",
-                style: TextStyle(
-                  color: isZeroStock ? Colors.red : Colors.black87,
-                  fontWeight: isZeroStock ? FontWeight.bold : FontWeight.normal,
-                ),
-              ),
-              trailing: Text(
-                "Rs. ${stock.pricePerCarton.toStringAsFixed(0)}/Ctn",
-                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
-              ),
+              onChanged: (val) {
+                setState(() {
+                  searchQuery = val;
+                });
+              },
             ),
-          );
-        },
+          ),
+          // Stock List
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              itemCount: filteredStock.length,
+              itemBuilder: (context, index) {
+                final stock = filteredStock[index];
+                final bool isZeroStock = stock.cartons == 0 && stock.looseUnits == 0;
+
+                return Card(
+                  elevation: 2,
+                  margin: const EdgeInsets.symmetric(vertical: 6),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.inventory_2,
+                                  color: isZeroStock ? Colors.red : Colors.blueAccent,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  "${stock.name} - ${stock.size}",
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                    color: isZeroStock ? Colors.red : Colors.black,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            // Three-Dot Menu
+                            PopupMenuButton<String>(
+                              onSelected: (value) {
+                                if (value == 'edit') {
+                                  _addOrEditStockDialog(stock);
+                                }
+                              },
+                              itemBuilder: (context) => [
+                                const PopupMenuItem(
+                                  value: 'edit',
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.edit, color: Colors.blueAccent, size: 20),
+                                      SizedBox(width: 8),
+                                      Text("Edit"),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        const Divider(height: 10),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  "Cartons Stock: ${stock.cartons} / ${stock.packetsPerCarton}",
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 15,
+                                    color: isZeroStock ? Colors.red : Colors.black87,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  "Loose Units: ${stock.looseUnits} Pcs",
+                                  style: TextStyle(
+                                    color: isZeroStock ? Colors.red : Colors.black87,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  "Carton Rate: Rs. ${stock.cartonRate.toStringAsFixed(0)}",
+                                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 15),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  "Packet Rate: Rs. ${stock.unitRate.toStringAsFixed(0)}",
+                                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.teal),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _addNewStockDialog,
+        onPressed: () => _addOrEditStockDialog(),
         backgroundColor: Colors.blueAccent,
         icon: const Icon(Icons.add, color: Colors.white),
         label: const Text("Add New Item", style: TextStyle(color: Colors.white)),
@@ -408,7 +635,7 @@ class SalesOrderScreen extends StatelessWidget {
                   return Card(
                     child: ListTile(
                       title: Text("${item.name} (${item.size})"),
-                      subtitle: Text("Price: Rs. ${item.pricePerCarton.toStringAsFixed(0)} / Ctn"),
+                      subtitle: Text("Carton Rate: Rs. ${item.cartonRate.toStringAsFixed(0)}"),
                       trailing: IconButton(
                         icon: const Icon(Icons.add_circle, color: Colors.blueAccent),
                         onPressed: () {
