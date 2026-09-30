@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 void main() {
@@ -31,7 +33,7 @@ class StockItem {
   int looseUnits;
   double unitRate;
   double discountPercent;
-  String imageUrl;
+  String? imagePath; // Device local file path
 
   StockItem({
     required this.name,
@@ -41,7 +43,7 @@ class StockItem {
     required this.looseUnits,
     required this.unitRate,
     this.discountPercent = 0.0,
-    this.imageUrl = "",
+    this.imagePath,
   });
 
   // Base Calculations
@@ -98,7 +100,6 @@ List<StockItem> globalStock = [
     looseUnits: 10,
     unitRate: 600.0,
     discountPercent: 2.0,
-    imageUrl: "",
   ),
   StockItem(
     name: "Rocket Pamper",
@@ -108,7 +109,6 @@ List<StockItem> globalStock = [
     looseUnits: 0,
     unitRate: 650.0,
     discountPercent: 0.0,
-    imageUrl: "",
   ),
   StockItem(
     name: "Rocket Pamper",
@@ -118,7 +118,6 @@ List<StockItem> globalStock = [
     looseUnits: 5,
     unitRate: 700.0,
     discountPercent: 5.0,
-    imageUrl: "",
   ),
   StockItem(
     name: "Rocket Pamper",
@@ -128,7 +127,6 @@ List<StockItem> globalStock = [
     looseUnits: 0,
     unitRate: 750.0,
     discountPercent: 0.0,
-    imageUrl: "",
   ),
 ];
 
@@ -170,7 +168,7 @@ class MainNavigationScreen extends StatefulWidget {
 }
 
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
-  int _selectedIndex = 1; // Default to Stock Screen
+  int _selectedIndex = 1;
 
   final List<Widget> _screens = [
     const OutletsScreen(),
@@ -302,7 +300,7 @@ class OutletsScreen extends StatelessWidget {
   }
 }
 
-// 2. STOCK MANAGEMENT SCREEN WITH EDIT, DELETE, DISCOUNT, IMAGE ZOOM
+// 2. STOCK MANAGEMENT SCREEN WITH GALLERY UPLOAD & ZOOM
 class StockScreen extends StatefulWidget {
   const StockScreen({super.key});
 
@@ -313,6 +311,7 @@ class StockScreen extends StatefulWidget {
 class _StockScreenState extends State<StockScreen> {
   TextEditingController searchController = TextEditingController();
   String searchQuery = "";
+  final ImagePicker _picker = ImagePicker();
 
   void _showZoomImageDialog(StockItem stock) {
     showDialog(
@@ -338,12 +337,8 @@ class _StockScreenState extends State<StockScreen> {
                   panEnabled: true,
                   minScale: 0.5,
                   maxScale: 4.0,
-                  child: stock.imageUrl.isNotEmpty
-                      ? Image.network(
-                          stock.imageUrl,
-                          errorBuilder: (context, error, stackTrace) =>
-                              const Icon(Icons.broken_image, size: 100, color: Colors.grey),
-                        )
+                  child: stock.imagePath != null && File(stock.imagePath!).existsSync()
+                      ? Image.file(File(stock.imagePath!))
                       : Container(
                           height: 200,
                           width: 200,
@@ -353,7 +348,7 @@ class _StockScreenState extends State<StockScreen> {
                             children: [
                               Icon(Icons.child_friendly, size: 80, color: Colors.blueAccent),
                               SizedBox(height: 8),
-                              Text("Rocket Pamper Sample Image", style: TextStyle(color: Colors.grey)),
+                              Text("No Custom Image Selected", style: TextStyle(color: Colors.grey)),
                             ],
                           ),
                         ),
@@ -405,7 +400,8 @@ class _StockScreenState extends State<StockScreen> {
     final looseUnitsController = TextEditingController(text: itemToEdit != null ? itemToEdit.looseUnits.toString() : "0");
     final unitRateController = TextEditingController(text: itemToEdit != null ? itemToEdit.unitRate.toString() : "0");
     final discountController = TextEditingController(text: itemToEdit != null ? itemToEdit.discountPercent.toString() : "0");
-    final imageController = TextEditingController(text: itemToEdit?.imageUrl ?? "");
+    
+    String? selectedImagePath = itemToEdit?.imagePath;
 
     double calculatedCartonRate = itemToEdit != null ? itemToEdit.baseCartonRate : 0.0;
     double calculatedDiscountedCarton = itemToEdit != null ? itemToEdit.discountedCartonRate : 0.0;
@@ -427,6 +423,15 @@ class _StockScreenState extends State<StockScreen> {
                 calculatedCartonRate = baseCarton;
                 calculatedDiscountedCarton = discCarton;
               });
+            }
+
+            Future<void> pickImage() async {
+              final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+              if (image != null) {
+                setDialogState(() {
+                  selectedImagePath = image.path;
+                });
+              }
             }
 
             return AlertDialog(
@@ -489,10 +494,23 @@ class _StockScreenState extends State<StockScreen> {
                         ),
                       ],
                     ),
-                    TextField(
-                      controller: imageController,
-                      decoration: const InputDecoration(labelText: "Image URL (Optional)"),
+                    const SizedBox(height: 15),
+                    // Upload Image Section
+                    OutlinedButton.icon(
+                      onPressed: pickImage,
+                      icon: const Icon(Icons.image_search, color: Colors.blueAccent),
+                      label: Text(selectedImagePath == null ? "Upload Image from Gallery" : "Change Selected Image"),
                     ),
+                    if (selectedImagePath != null && File(selectedImagePath!).existsSync())
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8.0),
+                        child: Image.file(
+                          File(selectedImagePath!),
+                          height: 80,
+                          width: 80,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
                     const SizedBox(height: 15),
                     Container(
                       padding: const EdgeInsets.all(10),
@@ -551,7 +569,7 @@ class _StockScreenState extends State<StockScreen> {
                               looseUnits: loose,
                               unitRate: uRate,
                               discountPercent: disc,
-                              imageUrl: imageController.text,
+                              imagePath: selectedImagePath,
                             ),
                           );
                         } else {
@@ -562,7 +580,7 @@ class _StockScreenState extends State<StockScreen> {
                           itemToEdit.looseUnits = loose;
                           itemToEdit.unitRate = uRate;
                           itemToEdit.discountPercent = disc;
-                          itemToEdit.imageUrl = imageController.text;
+                          itemToEdit.imagePath = selectedImagePath;
                         }
                       });
                       Navigator.pop(context);
@@ -580,7 +598,6 @@ class _StockScreenState extends State<StockScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Sort Alphabetically
     List<StockItem> sortedStock = List.from(globalStock);
     sortedStock.sort((a, b) {
       int nameComp = a.name.toLowerCase().compareTo(b.name.toLowerCase());
@@ -588,7 +605,6 @@ class _StockScreenState extends State<StockScreen> {
       return a.size.toLowerCase().compareTo(b.size.toLowerCase());
     });
 
-    // Search Filter
     List<StockItem> filteredStock = sortedStock.where((item) {
       String fullQuery = "${item.name} ${item.size}".toLowerCase();
       return fullQuery.contains(searchQuery.toLowerCase());
@@ -597,7 +613,6 @@ class _StockScreenState extends State<StockScreen> {
     return Scaffold(
       body: Column(
         children: [
-          // Search Bar
           Padding(
             padding: const EdgeInsets.all(12.0),
             child: TextField(
@@ -626,7 +641,6 @@ class _StockScreenState extends State<StockScreen> {
               },
             ),
           ),
-          // Stock List
           Expanded(
             child: ListView.builder(
               padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -652,15 +666,13 @@ class _StockScreenState extends State<StockScreen> {
                                 children: [
                                   CircleAvatar(
                                     backgroundColor: isZeroStock ? Colors.red.shade100 : Colors.blue.shade100,
-                                    child: stock.imageUrl.isNotEmpty
+                                    child: stock.imagePath != null && File(stock.imagePath!).existsSync()
                                         ? ClipOval(
-                                            child: Image.network(
-                                              stock.imageUrl,
+                                            child: Image.file(
+                                              File(stock.imagePath!),
                                               width: 40,
                                               height: 40,
                                               fit: BoxFit.cover,
-                                              errorBuilder: (context, error, stackTrace) =>
-                                                  const Icon(Icons.child_friendly, color: Colors.blueAccent),
                                             ),
                                           )
                                         : Icon(
@@ -697,7 +709,6 @@ class _StockScreenState extends State<StockScreen> {
                                 ],
                               ),
                             ),
-                            // Three-Dot Menu (Edit & Delete)
                             PopupMenuButton<String>(
                               onSelected: (value) {
                                 if (value == 'edit') {
@@ -927,7 +938,6 @@ class InvoiceHistoryDetailScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Summary Card
             Card(
               color: Colors.blue.shade50,
               elevation: 2,
