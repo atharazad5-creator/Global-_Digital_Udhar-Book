@@ -77,10 +77,10 @@ class Outlet {
   double get balance => totalBill - paidAmount;
 }
 
-// Global Preserved Data - Rocket Pamper Stock & Ghousia Store Outlets
+// Global Preserved Data - Stock & Outlets
 List<StockItem> globalStock = [
   StockItem(name: "Rocket Pamper", size: "Newborn (NB)", cartons: 25, packetsPerCarton: 8, loosePackets: 0, pricePerCarton: 4800.0),
-  StockItem(name: "Rocket Pamper", size: "Small (S)", cartons: 25, packetsPerCarton: 8, loosePackets: 0, pricePerCarton: 5200.0),
+  StockItem(name: "Rocket Pamper", size: "Small (S)", cartons: 0, packetsPerCarton: 8, loosePackets: 0, pricePerCarton: 5200.0), // Zero Stock Test
   StockItem(name: "Rocket Pamper", size: "Medium (M)", cartons: 25, packetsPerCarton: 8, loosePackets: 0, pricePerCarton: 5600.0),
   StockItem(name: "Rocket Pamper", size: "Large (L)", cartons: 25, packetsPerCarton: 8, loosePackets: 0, pricePerCarton: 6000.0),
 ];
@@ -101,7 +101,7 @@ List<Outlet> globalOutlets = [
     name: "ABC Traders",
     phone: "+923009876543",
     totalBill: 10400.0,
-    paidAmount: 10400.0, // Fully Paid -> Shows Blue
+    paidAmount: 10400.0, // Fully Paid -> Blue Color
     items: [
       InvoiceItem(name: "Rocket Pamper", size: "Small (S)", qty: 2, price: 5200.0),
     ],
@@ -154,34 +154,34 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           children: [
             const UserAccountsDrawerHeader(
               accountName: Text("Global Digital Khata", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              accountEmail: Text("Rocket Pamper Distribution"),
+              accountEmail: Text("Inventory & Khata Management System"),
               currentAccountPicture: CircleAvatar(
                 backgroundColor: Colors.white,
-                child: Icon(Icons.child_friendly, size: 40, color: Colors.blueAccent),
+                child: Icon(Icons.storefront, size: 40, color: Colors.blueAccent),
               ),
               decoration: BoxDecoration(color: Colors.blueAccent),
             ),
             ListTile(
               leading: const Icon(Icons.store, color: Colors.blueAccent),
-              title: const Text('My Outlets (دکانیں)'),
+              title: const Text('My Outlets'),
               selected: _selectedIndex == 0,
               onTap: () => _onSelectItem(0),
             ),
             ListTile(
               leading: const Icon(Icons.inventory_2, color: Colors.blueAccent),
-              title: const Text('Stock Management (اسٹاک)'),
+              title: const Text('Stock Management'),
               selected: _selectedIndex == 1,
               onTap: () => _onSelectItem(1),
             ),
             ListTile(
               leading: const Icon(Icons.add_shopping_cart, color: Colors.blueAccent),
-              title: const Text('Sales Order (فروخت)'),
+              title: const Text('Sales Order'),
               selected: _selectedIndex == 2,
               onTap: () => _onSelectItem(2),
             ),
             ListTile(
               leading: const Icon(Icons.receipt_long, color: Colors.blueAccent),
-              title: const Text('Invoice History (انوائس ہسٹری)'),
+              title: const Text('Invoice History'),
               selected: _selectedIndex == 3,
               onTap: () => _onSelectItem(3),
             ),
@@ -257,9 +257,67 @@ class OutletsScreen extends StatelessWidget {
   }
 }
 
-// 2. STOCK MANAGEMENT SCREEN (ROCKET PAMPER SIZES)
-class StockScreen extends StatelessWidget {
+// 2. STOCK MANAGEMENT SCREEN WITH ADD BUTTON & ZERO STOCK COLOR LOGIC
+class StockScreen extends StatefulWidget {
   const StockScreen({super.key});
+
+  @override
+  State<StockScreen> createState() => _StockScreenState();
+}
+
+class _StockScreenState extends State<StockScreen> {
+  void _addNewStockDialog() {
+    final nameController = TextEditingController();
+    final sizeController = TextEditingController();
+    final cartonsController = TextEditingController();
+    final priceController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text("Add New Stock Item"),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(controller: nameController, decoration: const InputDecoration(labelText: "Item Name")),
+                TextField(controller: sizeController, decoration: const InputDecoration(labelText: "Size (e.g. Small/Medium)")),
+                TextField(controller: cartonsController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: "Cartons Quantity")),
+                TextField(controller: priceController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: "Price Per Carton")),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Cancel"),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (nameController.text.isNotEmpty) {
+                  setState(() {
+                    globalStock.add(
+                      StockItem(
+                        name: nameController.text,
+                        size: sizeController.text.isEmpty ? "Standard" : sizeController.text,
+                        cartons: int.tryParse(cartonsController.text) ?? 0,
+                        packetsPerCarton: 8,
+                        loosePackets: 0,
+                        pricePerCarton: double.tryParse(priceController.text) ?? 0.0,
+                      ),
+                    );
+                  });
+                  Navigator.pop(context);
+                }
+              },
+              child: const Text("Add Item"),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -269,14 +327,32 @@ class StockScreen extends StatelessWidget {
         itemCount: globalStock.length,
         itemBuilder: (context, index) {
           final stock = globalStock[index];
+          final bool isZeroStock = stock.cartons == 0 && stock.loosePackets == 0;
+
           return Card(
             elevation: 2,
             margin: const EdgeInsets.symmetric(vertical: 6),
             child: ListTile(
-              leading: const Icon(Icons.inventory, color: Colors.blueAccent),
-              title: Text("${stock.name} - ${stock.size}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              leading: Icon(
+                Icons.inventory_2,
+                color: isZeroStock ? Colors.red : Colors.blueAccent,
+              ),
+              title: Text(
+                "${stock.name} - ${stock.size}",
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: isZeroStock ? Colors.red : Colors.black,
+                ),
+              ),
               subtitle: Text(
-                "Cartons: ${stock.cartons} | Loose: ${stock.loosePackets}\nTotal Packets: ${stock.totalPackets}",
+                isZeroStock
+                    ? "OUT OF STOCK (0 Cartons)"
+                    : "Cartons: ${stock.cartons} | Loose: ${stock.loosePackets}\nTotal Packets: ${stock.totalPackets}",
+                style: TextStyle(
+                  color: isZeroStock ? Colors.red : Colors.black87,
+                  fontWeight: isZeroStock ? FontWeight.bold : FontWeight.normal,
+                ),
               ),
               trailing: Text(
                 "Rs. ${stock.pricePerCarton.toStringAsFixed(0)}/Ctn",
@@ -285,6 +361,12 @@ class StockScreen extends StatelessWidget {
             ),
           );
         },
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _addNewStockDialog,
+        backgroundColor: Colors.blueAccent,
+        icon: const Icon(Icons.add, color: Colors.white),
+        label: const Text("Add New Item", style: TextStyle(color: Colors.white)),
       ),
     );
   }
@@ -310,8 +392,8 @@ class SalesOrderScreen extends StatelessWidget {
                     Icon(Icons.add_shopping_cart, color: Colors.white, size: 30),
                     SizedBox(width: 12),
                     Text(
-                      "Create Sales Order (Rocket Pamper)",
-                      style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
+                      "Create Sales Order",
+                      style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
@@ -331,7 +413,7 @@ class SalesOrderScreen extends StatelessWidget {
                         icon: const Icon(Icons.add_circle, color: Colors.blueAccent),
                         onPressed: () {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text("${item.name} ${item.size} Order cart me add ho gaya")),
+                            SnackBar(content: Text("${item.name} ${item.size} added to order cart")),
                           );
                         },
                       ),
@@ -408,7 +490,7 @@ class InvoiceHistoryDetailScreen extends StatelessWidget {
     } else {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("WhatsApp open karne me masla hua")),
+          const SnackBar(content: Text("Could not launch WhatsApp")),
         );
       }
     }
@@ -468,7 +550,7 @@ class InvoiceHistoryDetailScreen extends StatelessWidget {
             ),
             const SizedBox(height: 20),
             const Text(
-              "Purchased Items (تفصیلات):",
+              "Purchased Items:",
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 10),
