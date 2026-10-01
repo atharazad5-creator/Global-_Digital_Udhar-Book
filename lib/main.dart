@@ -5,7 +5,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const GlobalDigitalKhataApp());
 }
 
@@ -48,16 +49,11 @@ class StockItem {
     this.imagePath,
   });
 
-  // Base Calculations
   double get baseCartonRate => unitRate * packetsPerCarton;
-
-  // Discount Calculations
   double get discountedUnitRate => unitRate * (1 - (discountPercent / 100));
   double get discountedCartonRate => baseCartonRate * (1 - (discountPercent / 100));
-
   int get totalUnits => (cartons * packetsPerCarton) + packetsUnits;
 
-  // Deduct Stock Logic
   void deductStock({int soldCartons = 0, int soldUnits = 0}) {
     int totalAvailable = totalUnits;
     int totalSold = (soldCartons * packetsPerCarton) + soldUnits;
@@ -69,7 +65,6 @@ class StockItem {
     packetsUnits = remainingTotal % packetsPerCarton;
   }
 
-  // Convert StockItem to JSON
   Map<String, dynamic> toJson() => {
         'name': name,
         'size': size,
@@ -81,15 +76,14 @@ class StockItem {
         'imagePath': imagePath,
       };
 
-  // Create StockItem from JSON
   factory StockItem.fromJson(Map<String, dynamic> json) => StockItem(
-        name: json['name'],
-        size: json['size'],
-        cartons: json['cartons'],
-        packetsPerCarton: json['packetsPerCarton'],
-        packetsUnits: json['packetsUnits'],
-        unitRate: (json['unitRate'] as num).toDouble(),
-        discountPercent: (json['discountPercent'] as num).toDouble(),
+        name: json['name'] ?? '',
+        size: json['size'] ?? '',
+        cartons: json['cartons'] ?? 0,
+        packetsPerCarton: json['packetsPerCarton'] ?? 8,
+        packetsUnits: json['packetsUnits'] ?? 0,
+        unitRate: (json['unitRate'] as num?)?.toDouble() ?? 0.0,
+        discountPercent: (json['discountPercent'] as num?)?.toDouble() ?? 0.0,
         imagePath: json['imagePath'],
       );
 }
@@ -130,8 +124,10 @@ class Outlet {
   double get balance => totalBill - paidAmount;
 }
 
-// Global Default Preserved Data
-List<StockItem> globalStock = [
+// Global Data
+List<StockItem> globalStock = [];
+
+List<StockItem> defaultStock = [
   StockItem(
     name: "Rocket Pamper",
     size: "Newborn (NB)",
@@ -170,18 +166,29 @@ List<StockItem> globalStock = [
   ),
 ];
 
-// Permanent Local Storage Helper Functions
+// Permanent Local Storage
 Future<void> saveStockToStorage() async {
-  final prefs = await SharedPreferences.getInstance();
-  List<String> jsonList = globalStock.map((item) => jsonEncode(item.toJson())).toList();
-  await prefs.setStringList('saved_stock_items', jsonList);
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    List<String> jsonList = globalStock.map((item) => jsonEncode(item.toJson())).toList();
+    await prefs.setStringList('saved_stock_items_v2', jsonList);
+  } catch (e) {
+    debugPrint("Save Error: $e");
+  }
 }
 
 Future<void> loadStockFromStorage() async {
-  final prefs = await SharedPreferences.getInstance();
-  List<String>? jsonList = prefs.getStringList('saved_stock_items');
-  if (jsonList != null && jsonList.isNotEmpty) {
-    globalStock = jsonList.map((itemStr) => StockItem.fromJson(jsonDecode(itemStr))).toList();
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    List<String>? jsonList = prefs.getStringList('saved_stock_items_v2');
+    if (jsonList != null && jsonList.isNotEmpty) {
+      globalStock = jsonList.map((itemStr) => StockItem.fromJson(jsonDecode(itemStr))).toList();
+    } else {
+      globalStock = List.from(defaultStock);
+      await saveStockToStorage();
+    }
+  } catch (e) {
+    globalStock = List.from(defaultStock);
   }
 }
 
@@ -207,14 +214,13 @@ List<Outlet> globalOutlets = [
   ),
 ];
 
-// Helper: Convert Number to Words
 String convertToWords(double amount) {
   int val = amount.toInt();
   if (val == 0) return "Zero Rupees Only";
   return "$val Rupees Only";
 }
 
-// Main Dashboard
+// Navigation Dashboard
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
 
@@ -224,12 +230,18 @@ class MainNavigationScreen extends StatefulWidget {
 
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _selectedIndex = 1;
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    loadStockFromStorage().then((_) {
-      setState(() {});
+    _initData();
+  }
+
+  void _initData() async {
+    await loadStockFromStorage();
+    setState(() {
+      _isLoading = false;
     });
   }
 
@@ -295,12 +307,14 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           ],
         ),
       ),
-      body: _screens[_selectedIndex],
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _screens[_selectedIndex],
     );
   }
 }
 
-// 1. MY OUTLETS SCREEN
+// 1. OUTLETS SCREEN
 class OutletsScreen extends StatelessWidget {
   const OutletsScreen({super.key});
 
@@ -363,7 +377,7 @@ class OutletsScreen extends StatelessWidget {
   }
 }
 
-// 2. STOCK MANAGEMENT SCREEN WITH PERMANENT SAVE
+// 2. STOCK MANAGEMENT SCREEN
 class StockScreen extends StatefulWidget {
   const StockScreen({super.key});
 
@@ -411,7 +425,7 @@ class _StockScreenState extends State<StockScreen> {
                             children: [
                               Icon(Icons.child_friendly, size: 80, color: Colors.blueAccent),
                               SizedBox(height: 8),
-                              Text("No Custom Image Selected", style: TextStyle(color: Colors.grey)),
+                              Text("No Custom Image Available", style: TextStyle(color: Colors.grey)),
                             ],
                           ),
                         ),
@@ -716,6 +730,7 @@ class _StockScreenState extends State<StockScreen> {
               itemBuilder: (context, index) {
                 final stock = filteredStock[index];
                 final bool isZeroStock = stock.cartons == 0 && stock.packetsUnits == 0;
+                final bool hasValidImage = stock.imagePath != null && File(stock.imagePath!).existsSync();
 
                 return Card(
                   elevation: 2,
@@ -734,7 +749,7 @@ class _StockScreenState extends State<StockScreen> {
                                 children: [
                                   CircleAvatar(
                                     backgroundColor: isZeroStock ? Colors.red.shade100 : Colors.blue.shade100,
-                                    child: stock.imagePath != null && File(stock.imagePath!).existsSync()
+                                    child: hasValidImage
                                         ? ClipOval(
                                             child: Image.file(
                                               File(stock.imagePath!),
@@ -870,7 +885,7 @@ class _StockScreenState extends State<StockScreen> {
   }
 }
 
-// 3. SALES ORDER SCREEN WITH AUTOMATIC STOCK DEDUCTION
+// 3. SALES ORDER SCREEN
 class SalesOrderScreen extends StatefulWidget {
   const SalesOrderScreen({super.key});
 
