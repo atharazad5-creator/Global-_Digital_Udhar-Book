@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 void main() {
@@ -30,7 +32,7 @@ class StockItem {
   String size;
   int cartons;
   int packetsPerCarton;
-  int packetsUnits; // Updated label: Packets / Units
+  int packetsUnits;
   double unitRate;
   double discountPercent;
   String? imagePath;
@@ -55,7 +57,7 @@ class StockItem {
 
   int get totalUnits => (cartons * packetsPerCarton) + packetsUnits;
 
-  // Deduct Stock Logic (Cartons & Packets/Units)
+  // Deduct Stock Logic
   void deductStock({int soldCartons = 0, int soldUnits = 0}) {
     int totalAvailable = totalUnits;
     int totalSold = (soldCartons * packetsPerCarton) + soldUnits;
@@ -66,6 +68,30 @@ class StockItem {
     cartons = remainingTotal ~/ packetsPerCarton;
     packetsUnits = remainingTotal % packetsPerCarton;
   }
+
+  // Convert StockItem to JSON
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'size': size,
+        'cartons': cartons,
+        'packetsPerCarton': packetsPerCarton,
+        'packetsUnits': packetsUnits,
+        'unitRate': unitRate,
+        'discountPercent': discountPercent,
+        'imagePath': imagePath,
+      };
+
+  // Create StockItem from JSON
+  factory StockItem.fromJson(Map<String, dynamic> json) => StockItem(
+        name: json['name'],
+        size: json['size'],
+        cartons: json['cartons'],
+        packetsPerCarton: json['packetsPerCarton'],
+        packetsUnits: json['packetsUnits'],
+        unitRate: (json['unitRate'] as num).toDouble(),
+        discountPercent: (json['discountPercent'] as num).toDouble(),
+        imagePath: json['imagePath'],
+      );
 }
 
 class InvoiceItem {
@@ -104,7 +130,7 @@ class Outlet {
   double get balance => totalBill - paidAmount;
 }
 
-// Global Preserved Data
+// Global Default Preserved Data
 List<StockItem> globalStock = [
   StockItem(
     name: "Rocket Pamper",
@@ -143,6 +169,21 @@ List<StockItem> globalStock = [
     discountPercent: 0.0,
   ),
 ];
+
+// Permanent Local Storage Helper Functions
+Future<void> saveStockToStorage() async {
+  final prefs = await SharedPreferences.getInstance();
+  List<String> jsonList = globalStock.map((item) => jsonEncode(item.toJson())).toList();
+  await prefs.setStringList('saved_stock_items', jsonList);
+}
+
+Future<void> loadStockFromStorage() async {
+  final prefs = await SharedPreferences.getInstance();
+  List<String>? jsonList = prefs.getStringList('saved_stock_items');
+  if (jsonList != null && jsonList.isNotEmpty) {
+    globalStock = jsonList.map((itemStr) => StockItem.fromJson(jsonDecode(itemStr))).toList();
+  }
+}
 
 List<Outlet> globalOutlets = [
   Outlet(
@@ -183,6 +224,14 @@ class MainNavigationScreen extends StatefulWidget {
 
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _selectedIndex = 1;
+
+  @override
+  void initState() {
+    super.initState();
+    loadStockFromStorage().then((_) {
+      setState(() {});
+    });
+  }
 
   final List<Widget> _screens = [
     const OutletsScreen(),
@@ -314,7 +363,7 @@ class OutletsScreen extends StatelessWidget {
   }
 }
 
-// 2. STOCK MANAGEMENT SCREEN
+// 2. STOCK MANAGEMENT SCREEN WITH PERMANENT SAVE
 class StockScreen extends StatefulWidget {
   const StockScreen({super.key});
 
@@ -389,14 +438,17 @@ class _StockScreenState extends State<StockScreen> {
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-              onPressed: () {
+              onPressed: () async {
                 setState(() {
                   globalStock.remove(stock);
                 });
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text("${stock.name} deleted successfully")),
-                );
+                await saveStockToStorage();
+                if (mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text("${stock.name} deleted successfully")),
+                  );
+                }
               },
               child: const Text("Delete", style: TextStyle(color: Colors.white)),
             ),
@@ -563,7 +615,7 @@ class _StockScreenState extends State<StockScreen> {
                   child: const Text("Cancel"),
                 ),
                 ElevatedButton(
-                  onPressed: () {
+                  onPressed: () async {
                     if (nameController.text.isNotEmpty) {
                       setState(() {
                         int ctn = int.tryParse(cartonsController.text) ?? 0;
@@ -596,7 +648,10 @@ class _StockScreenState extends State<StockScreen> {
                           itemToEdit.imagePath = selectedImagePath;
                         }
                       });
-                      Navigator.pop(context);
+                      await saveStockToStorage();
+                      if (mounted) {
+                        Navigator.pop(context);
+                      }
                     }
                   },
                   child: Text(itemToEdit == null ? "Add Item" : "Save Changes"),
@@ -815,7 +870,7 @@ class _StockScreenState extends State<StockScreen> {
   }
 }
 
-// 3. SALES ORDER SCREEN WITH AUTOMATIC STOCK & PAYMENT DEDUCTION
+// 3. SALES ORDER SCREEN WITH AUTOMATIC STOCK DEDUCTION
 class SalesOrderScreen extends StatefulWidget {
   const SalesOrderScreen({super.key});
 
@@ -824,16 +879,20 @@ class SalesOrderScreen extends StatefulWidget {
 }
 
 class _SalesOrderScreenState extends State<SalesOrderScreen> {
-  void _processOrder(StockItem item, int ctnQty, int unitQty) {
+  void _processOrder(StockItem item, int ctnQty, int unitQty) async {
     if (ctnQty == 0 && unitQty == 0) return;
 
     setState(() {
       item.deductStock(soldCartons: ctnQty, soldUnits: unitQty);
     });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Sold: $ctnQty Ctns & $unitQty Units of ${item.name} (${item.size}). Stock updated.")),
-    );
+    await saveStockToStorage();
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Sold: $ctnQty Ctns & $unitQty Units of ${item.name} (${item.size}). Stock saved.")),
+      );
+    }
   }
 
   @override
