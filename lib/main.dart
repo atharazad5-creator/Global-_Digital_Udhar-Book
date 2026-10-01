@@ -30,17 +30,17 @@ class StockItem {
   String size;
   int cartons;
   int packetsPerCarton;
-  int looseUnits;
+  int packetsUnits; // Updated label: Packets / Units
   double unitRate;
   double discountPercent;
-  String? imagePath; // Device local file path
+  String? imagePath;
 
   StockItem({
     required this.name,
     required this.size,
     required this.cartons,
     required this.packetsPerCarton,
-    required this.looseUnits,
+    required this.packetsUnits,
     required this.unitRate,
     this.discountPercent = 0.0,
     this.imagePath,
@@ -53,30 +53,44 @@ class StockItem {
   double get discountedUnitRate => unitRate * (1 - (discountPercent / 100));
   double get discountedCartonRate => baseCartonRate * (1 - (discountPercent / 100));
 
-  int get totalUnits => (cartons * packetsPerCarton) + looseUnits;
+  int get totalUnits => (cartons * packetsPerCarton) + packetsUnits;
+
+  // Deduct Stock Logic (Cartons & Packets/Units)
+  void deductStock({int soldCartons = 0, int soldUnits = 0}) {
+    int totalAvailable = totalUnits;
+    int totalSold = (soldCartons * packetsPerCarton) + soldUnits;
+    int remainingTotal = totalAvailable - totalSold;
+
+    if (remainingTotal < 0) remainingTotal = 0;
+
+    cartons = remainingTotal ~/ packetsPerCarton;
+    packetsUnits = remainingTotal % packetsPerCarton;
+  }
 }
 
 class InvoiceItem {
   final String name;
   final String size;
-  final int qty;
-  final double price;
+  final int qtyCartons;
+  final int qtyUnits;
+  final double unitPrice;
 
   InvoiceItem({
     required this.name,
     required this.size,
-    required this.qty,
-    required this.price,
+    required this.qtyCartons,
+    required this.qtyUnits,
+    required this.unitPrice,
   });
 
-  double get total => qty * price;
+  double get total => (qtyCartons * (unitPrice * 8)) + (qtyUnits * unitPrice);
 }
 
 class Outlet {
   final String name;
   final String phone;
-  final double totalBill;
-  final double paidAmount;
+  double totalBill;
+  double paidAmount;
   final List<InvoiceItem> items;
 
   Outlet({
@@ -97,7 +111,7 @@ List<StockItem> globalStock = [
     size: "Newborn (NB)",
     cartons: 25,
     packetsPerCarton: 8,
-    looseUnits: 10,
+    packetsUnits: 10,
     unitRate: 600.0,
     discountPercent: 2.0,
   ),
@@ -106,7 +120,7 @@ List<StockItem> globalStock = [
     size: "Small (S)",
     cartons: 0,
     packetsPerCarton: 8,
-    looseUnits: 0,
+    packetsUnits: 0,
     unitRate: 650.0,
     discountPercent: 0.0,
   ),
@@ -115,7 +129,7 @@ List<StockItem> globalStock = [
     size: "Medium (M)",
     cartons: 25,
     packetsPerCarton: 8,
-    looseUnits: 5,
+    packetsUnits: 5,
     unitRate: 700.0,
     discountPercent: 5.0,
   ),
@@ -124,7 +138,7 @@ List<StockItem> globalStock = [
     size: "Large (L)",
     cartons: 25,
     packetsPerCarton: 8,
-    looseUnits: 0,
+    packetsUnits: 0,
     unitRate: 750.0,
     discountPercent: 0.0,
   ),
@@ -137,8 +151,8 @@ List<Outlet> globalOutlets = [
     totalBill: 12100.0,
     paidAmount: 5000.0,
     items: [
-      InvoiceItem(name: "Rocket Pamper", size: "Newborn (NB)", qty: 1, price: 4800.0),
-      InvoiceItem(name: "Rocket Pamper", size: "Medium (M)", qty: 1, price: 5600.0),
+      InvoiceItem(name: "Rocket Pamper", size: "Newborn (NB)", qtyCartons: 1, qtyUnits: 2, unitPrice: 588.0),
+      InvoiceItem(name: "Rocket Pamper", size: "Medium (M)", qtyCartons: 1, qtyUnits: 0, unitPrice: 665.0),
     ],
   ),
   Outlet(
@@ -147,7 +161,7 @@ List<Outlet> globalOutlets = [
     totalBill: 10400.0,
     paidAmount: 10400.0,
     items: [
-      InvoiceItem(name: "Rocket Pamper", size: "Small (S)", qty: 2, price: 5200.0),
+      InvoiceItem(name: "Rocket Pamper", size: "Small (S)", qtyCartons: 2, qtyUnits: 0, unitPrice: 650.0),
     ],
   ),
 ];
@@ -159,7 +173,7 @@ String convertToWords(double amount) {
   return "$val Rupees Only";
 }
 
-// Main Dashboard with Navigation Drawer
+// Main Dashboard
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
 
@@ -300,7 +314,7 @@ class OutletsScreen extends StatelessWidget {
   }
 }
 
-// 2. STOCK MANAGEMENT SCREEN WITH GALLERY UPLOAD & ZOOM
+// 2. STOCK MANAGEMENT SCREEN
 class StockScreen extends StatefulWidget {
   const StockScreen({super.key});
 
@@ -397,7 +411,7 @@ class _StockScreenState extends State<StockScreen> {
     final sizeController = TextEditingController(text: itemToEdit?.size ?? "");
     final cartonsController = TextEditingController(text: itemToEdit != null ? itemToEdit.cartons.toString() : "0");
     final pcsPerCartonController = TextEditingController(text: itemToEdit != null ? itemToEdit.packetsPerCarton.toString() : "8");
-    final looseUnitsController = TextEditingController(text: itemToEdit != null ? itemToEdit.looseUnits.toString() : "0");
+    final packetsUnitsController = TextEditingController(text: itemToEdit != null ? itemToEdit.packetsUnits.toString() : "0");
     final unitRateController = TextEditingController(text: itemToEdit != null ? itemToEdit.unitRate.toString() : "0");
     final discountController = TextEditingController(text: itemToEdit != null ? itemToEdit.discountPercent.toString() : "0");
     
@@ -469,9 +483,9 @@ class _StockScreenState extends State<StockScreen> {
                       ],
                     ),
                     TextField(
-                      controller: looseUnitsController,
+                      controller: packetsUnitsController,
                       keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: "Loose Units"),
+                      decoration: const InputDecoration(labelText: "Packets / Units"),
                     ),
                     Row(
                       children: [
@@ -495,7 +509,6 @@ class _StockScreenState extends State<StockScreen> {
                       ],
                     ),
                     const SizedBox(height: 15),
-                    // Upload Image Section
                     OutlinedButton.icon(
                       onPressed: pickImage,
                       icon: const Icon(Icons.image_search, color: Colors.blueAccent),
@@ -555,7 +568,7 @@ class _StockScreenState extends State<StockScreen> {
                       setState(() {
                         int ctn = int.tryParse(cartonsController.text) ?? 0;
                         int pcsPerCtn = int.tryParse(pcsPerCartonController.text) ?? 8;
-                        int loose = int.tryParse(looseUnitsController.text) ?? 0;
+                        int pktsUnits = int.tryParse(packetsUnitsController.text) ?? 0;
                         double uRate = double.tryParse(unitRateController.text) ?? 0.0;
                         double disc = double.tryParse(discountController.text) ?? 0.0;
 
@@ -566,7 +579,7 @@ class _StockScreenState extends State<StockScreen> {
                               size: sizeController.text.isEmpty ? "Standard" : sizeController.text,
                               cartons: ctn,
                               packetsPerCarton: pcsPerCtn,
-                              looseUnits: loose,
+                              packetsUnits: pktsUnits,
                               unitRate: uRate,
                               discountPercent: disc,
                               imagePath: selectedImagePath,
@@ -577,7 +590,7 @@ class _StockScreenState extends State<StockScreen> {
                           itemToEdit.size = sizeController.text;
                           itemToEdit.cartons = ctn;
                           itemToEdit.packetsPerCarton = pcsPerCtn;
-                          itemToEdit.looseUnits = loose;
+                          itemToEdit.packetsUnits = pktsUnits;
                           itemToEdit.unitRate = uRate;
                           itemToEdit.discountPercent = disc;
                           itemToEdit.imagePath = selectedImagePath;
@@ -647,7 +660,7 @@ class _StockScreenState extends State<StockScreen> {
               itemCount: filteredStock.length,
               itemBuilder: (context, index) {
                 final stock = filteredStock[index];
-                final bool isZeroStock = stock.cartons == 0 && stock.looseUnits == 0;
+                final bool isZeroStock = stock.cartons == 0 && stock.packetsUnits == 0;
 
                 return Card(
                   elevation: 2,
@@ -759,8 +772,9 @@ class _StockScreenState extends State<StockScreen> {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  "Loose Units: ${stock.looseUnits} Pcs",
+                                  "Packets / Units: ${stock.packetsUnits} Pcs",
                                   style: TextStyle(
+                                    fontWeight: FontWeight.w600,
                                     color: isZeroStock ? Colors.red : Colors.black87,
                                   ),
                                 ),
@@ -801,9 +815,26 @@ class _StockScreenState extends State<StockScreen> {
   }
 }
 
-// 3. SALES ORDER SCREEN
-class SalesOrderScreen extends StatelessWidget {
+// 3. SALES ORDER SCREEN WITH AUTOMATIC STOCK & PAYMENT DEDUCTION
+class SalesOrderScreen extends StatefulWidget {
   const SalesOrderScreen({super.key});
+
+  @override
+  State<SalesOrderScreen> createState() => _SalesOrderScreenState();
+}
+
+class _SalesOrderScreenState extends State<SalesOrderScreen> {
+  void _processOrder(StockItem item, int ctnQty, int unitQty) {
+    if (ctnQty == 0 && unitQty == 0) return;
+
+    setState(() {
+      item.deductStock(soldCartons: ctnQty, soldUnits: unitQty);
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Sold: $ctnQty Ctns & $unitQty Units of ${item.name} (${item.size}). Stock updated.")),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -828,23 +859,55 @@ class SalesOrderScreen extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 15),
             Expanded(
               child: ListView.builder(
                 itemCount: globalStock.length,
                 itemBuilder: (context, index) {
                   final item = globalStock[index];
+                  final ctnController = TextEditingController(text: "0");
+                  final unitController = TextEditingController(text: "0");
+
                   return Card(
-                    child: ListTile(
-                      title: Text("${item.name} (${item.size})"),
-                      subtitle: Text("Carton Rate: Rs. ${item.discountedCartonRate.toStringAsFixed(0)}"),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.add_circle, color: Colors.blueAccent),
-                        onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text("${item.name} ${item.size} added to order cart")),
-                          );
-                        },
+                    margin: const EdgeInsets.symmetric(vertical: 6),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text("${item.name} (${item.size})", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                          Text("Available: ${item.cartons} Ctns | ${item.packetsUnits} Packets/Units", style: const TextStyle(color: Colors.grey)),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: ctnController,
+                                  keyboardType: TextInputType.number,
+                                  decoration: const InputDecoration(labelText: "Sale Ctns", border: OutlineInputBorder()),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: TextField(
+                                  controller: unitController,
+                                  keyboardType: TextInputType.number,
+                                  decoration: const InputDecoration(labelText: "Sale Packets/Units", border: OutlineInputBorder()),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              ElevatedButton(
+                                onPressed: () {
+                                  int ctn = int.tryParse(ctnController.text) ?? 0;
+                                  int unit = int.tryParse(unitController.text) ?? 0;
+                                  _processOrder(item, ctn, unit);
+                                },
+                                style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent),
+                                child: const Text("Deduct", style: TextStyle(color: Colors.white)),
+                              )
+                            ],
+                          )
+                        ],
                       ),
                     ),
                   );
@@ -904,7 +967,7 @@ class InvoiceHistoryDetailScreen extends StatelessWidget {
     message.writeln("*Items Purchased:*");
     
     for (var item in outlet.items) {
-      message.writeln("• ${item.name} (${item.size}) x${item.qty} @ Rs.${item.price.toStringAsFixed(0)} = Rs.${item.total.toStringAsFixed(0)}");
+      message.writeln("• ${item.name} (${item.size}) - ${item.qtyCartons} Ctn / ${item.qtyUnits} Pcs = Rs.${item.total.toStringAsFixed(0)}");
     }
     
     message.writeln("--------------------------");
@@ -991,7 +1054,7 @@ class InvoiceHistoryDetailScreen extends StatelessWidget {
                     margin: const EdgeInsets.symmetric(vertical: 4),
                     child: ListTile(
                       title: Text("${item.name} (${item.size})", style: const TextStyle(fontWeight: FontWeight.w600)),
-                      subtitle: Text("Qty: ${item.qty} × Rs. ${item.price.toStringAsFixed(0)}"),
+                      subtitle: Text("${item.qtyCartons} Cartons & ${item.qtyUnits} Packets/Units"),
                       trailing: Text(
                         "Rs. ${item.total.toStringAsFixed(0)}",
                         style: const TextStyle(fontWeight: FontWeight.bold),
