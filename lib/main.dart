@@ -1,7 +1,10 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const GlobalDigitalKhataApp());
 }
 
@@ -13,13 +16,57 @@ class GlobalDigitalKhataApp extends StatefulWidget {
 }
 
 class _GlobalDigitalKhataAppState extends State<GlobalDigitalKhataApp> {
-  // Shared State across screens
   List<Map<String, dynamic>> outlets = [];
   List<Map<String, dynamic>> products = [];
   List<Map<String, dynamic>> dailyOrders = [];
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDataFromStorage();
+  }
+
+  // Load saved data from permanent device memory
+  Future<void> _loadDataFromStorage() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? outletsJson = prefs.getString('saved_outlets');
+    final String? productsJson = prefs.getString('saved_products');
+    final String? ordersJson = prefs.getString('saved_orders');
+
+    setState(() {
+      if (outletsJson != null) {
+        outlets = List<Map<String, dynamic>>.from(json.decode(outletsJson));
+      }
+      if (productsJson != null) {
+        products = List<Map<String, dynamic>>.from(json.decode(productsJson));
+      }
+      if (ordersJson != null) {
+        dailyOrders = List<Map<String, dynamic>>.from(json.decode(ordersJson));
+      }
+      isLoading = false;
+    });
+  }
+
+  // Save data permanently
+  Future<void> _saveDataToStorage() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('saved_outlets', json.encode(outlets));
+    await prefs.setString('saved_products', json.encode(products));
+    await prefs.setString('saved_orders', json.encode(dailyOrders));
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (isLoading) {
+      return const MaterialApp(
+        debugShowCheckedModeBanner: false,
+        home: Scaffold(
+          body: Center(child: CircularProgressIndicator(color: Colors.indigo)),
+        ),
+      );
+    }
+
     return MaterialApp(
       title: 'Global Digital Khata',
       debugShowCheckedModeBanner: false,
@@ -32,9 +79,18 @@ class _GlobalDigitalKhataAppState extends State<GlobalDigitalKhataApp> {
         outlets: outlets,
         products: products,
         dailyOrders: dailyOrders,
-        onUpdateOutlets: (updated) => setState(() => outlets = updated),
-        onUpdateProducts: (updated) => setState(() => products = updated),
-        onUpdateDailyOrders: (updated) => setState(() => dailyOrders = updated),
+        onUpdateOutlets: (updated) {
+          setState(() => outlets = updated);
+          _saveDataToStorage();
+        },
+        onUpdateProducts: (updated) {
+          setState(() => products = updated);
+          _saveDataToStorage();
+        },
+        onUpdateDailyOrders: (updated) {
+          setState(() => dailyOrders = updated);
+          _saveDataToStorage();
+        },
       ),
     );
   }
@@ -227,15 +283,12 @@ class _MyOutletScreenState extends State<MyOutletScreen> {
                                   outletData: item,
                                   products: widget.products,
                                   onSaveOrder: (orderData, updatedProducts) {
-                                    // Update outlet bill info
                                     item['totalBill'] = (item['totalBill'] ?? 0) + orderData['totalAmount'];
                                     item['balance'] = (item['totalBill'] ?? 0) - (item['paidAmount'] ?? 0);
                                     widget.onUpdateOutlets(List.from(widget.outlets));
 
-                                    // Deduct Stock
                                     widget.onUpdateProducts(updatedProducts);
 
-                                    // Add to Daily Sale Orders
                                     List<Map<String, dynamic>> updatedOrders = List.from(widget.dailyOrders)..add(orderData);
                                     widget.onUpdateDailyOrders(updatedOrders);
                                   },
@@ -426,7 +479,7 @@ class OutletOptionMenuScreen extends StatelessWidget {
   }
 }
 
-// CREATE ORDER SCREEN WITH STOCK MINUS CALCULATION
+// CREATE ORDER SCREEN
 class CreateOrderScreen extends StatefulWidget {
   final Map<String, dynamic> outletData;
   final List<Map<String, dynamic>> products;
@@ -459,7 +512,6 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
     double cartonRate = (selectedProduct!['cartonRate'] as num).toDouble();
     double total = orderedCartons * cartonRate;
 
-    // Deduct stock
     List<Map<String, dynamic>> updatedProds = List.from(widget.products);
     for (var p in updatedProds) {
       if (p['name'] == selectedProduct!['name']) {
@@ -516,7 +568,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
 }
 
 // ---------------------------------------------------------
-// 3. STOCK / PRODUCTS SCREEN (WITH EDIT & DELETE)
+// 3. STOCK / PRODUCTS SCREEN
 // ---------------------------------------------------------
 class StockProductScreen extends StatefulWidget {
   final List<Map<String, dynamic>> products;
