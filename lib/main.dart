@@ -17,117 +17,36 @@ class GlobalDigitalKhataApp extends StatelessWidget {
         useMaterial3: true,
         scaffoldBackgroundColor: const Color(0xFFF5F7FA),
       ),
-      home: const MainOutletScreen(),
+      home: const ProductStockScreen(),
     );
   }
 }
 
-// 1. MAIN PAGE: MY OUTLET
-class MainOutletScreen extends StatefulWidget {
-  const MainOutletScreen({super.key});
+// PRODUCT / STOCK MANAGEMENT SCREEN
+class ProductStockScreen extends StatefulWidget {
+  const ProductStockScreen({super.key});
 
   @override
-  State<MainOutletScreen> createState() => _MainOutletScreenState();
+  State<ProductStockScreen> createState() => _ProductStockScreenState();
 }
 
-class _MainOutletScreenState extends State<MainOutletScreen> {
-  List<Map<String, String>> outlets = [];
+class _ProductStockScreenState extends State<ProductStockScreen> {
+  List<Map<String, dynamic>> productsList = [];
 
-  void _navigateToAddOutlet() async {
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const AddOutletScreen()),
-    );
-
-    if (result != null && result is Map<String, String>) {
-      setState(() {
-        outlets.add(result);
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('My Outlets', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.indigo,
-        centerTitle: true,
+  void _openAddProductModal() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      body: outlets.isEmpty
-          ? const Center(
-              child: Text(
-                'No Outlet Added Yet.\nClick + to add shop details.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 16, color: Colors.grey),
-              ),
-            )
-          : ListView.builder(
-              itemCount: outlets.length,
-              itemBuilder: (context, index) {
-                final item = outlets[index];
-                return Card(
-                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: ListTile(
-                    leading: const CircleAvatar(
-                      backgroundColor: Colors.indigo,
-                      child: Icon(Icons.store, color: Colors.white),
-                    ),
-                    title: Text(item['shopName'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold)),
-                    subtitle: Text('${item['ownerName']} - ${item['whatsapp']}'),
-                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => OutletMenuScreen(outletData: item),
-                        ),
-                      );
-                    },
-                  ),
-                );
-              },
-            ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.indigo,
-        onPressed: _navigateToAddOutlet,
-        child: const Icon(Icons.add, color: Colors.white, size: 28),
-      ),
-    );
-  }
-}
-
-// 2. INFORMATION DETAIL FORM PAGE
-class AddOutletScreen extends StatefulWidget {
-  const AddOutletScreen({super.key});
-
-  @override
-  State<AddOutletScreen> createState() => _AddOutletScreenState();
-}
-
-class _AddOutletScreenState extends State<AddOutletScreen> {
-  final _shopNameController = TextEditingController();
-  final _ownerNameController = TextEditingController();
-  final _whatsappController = TextEditingController();
-  final _streetController = TextEditingController();
-  final _areaController = TextEditingController();
-  final _cityController = TextEditingController();
-
-  void _saveOutlet() {
-    if (_shopNameController.text.isEmpty || _ownerNameController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter Shop Name and Owner Name')),
-      );
-      return;
-    }
-
-    Navigator.pop(context, {
-      'shopName': _shopNameController.text,
-      'ownerName': _ownerNameController.text,
-      'whatsapp': _whatsappController.text,
-      'street': _streetController.text,
-      'area': _areaController.text,
-      'city': _cityController.text,
+      builder: (context) => const AddProductForm(),
+    ).then((newProduct) {
+      if (newProduct != null) {
+        setState(() {
+          productsList.add(newProduct);
+        });
+      }
     });
   }
 
@@ -135,93 +54,210 @@ class _AddOutletScreenState extends State<AddOutletScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Add Outlet Details', style: TextStyle(color: Colors.white)),
+        title: const Text('Stock / Product Management', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.indigo,
+        centerTitle: true,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            TextField(controller: _shopNameController, decoration: const InputDecoration(labelText: 'Shop Name')),
-            const SizedBox(height: 10),
-            TextField(controller: _ownerNameController, decoration: const InputDecoration(labelText: 'Owner Name')),
-            const SizedBox(height: 10),
-            TextField(controller: _whatsappController, decoration: const InputDecoration(labelText: 'WhatsApp Number'), keyboardType: TextInputType.phone),
-            const SizedBox(height: 10),
-            TextField(controller: _streetController, decoration: const InputDecoration(labelText: 'Street')),
-            const SizedBox(height: 10),
-            TextField(controller: _areaController, decoration: const InputDecoration(labelText: 'Area')),
-            const SizedBox(height: 10),
-            TextField(controller: _cityController, decoration: const InputDecoration(labelText: 'City')),
-            const SizedBox(height: 25),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.indigo,
-                minimumSize: const Size.fromHeight(50),
+      body: productsList.isEmpty
+          ? const Center(
+              child: Text(
+                'No Products Added to Stock Yet.\nClick + to Add New Product / Stock.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 16, color: Colors.grey),
               ),
-              onPressed: _saveOutlet,
-              child: const Text('Save Outlet', style: TextStyle(color: Colors.white, fontSize: 16)),
+            )
+          : ListView.builder(
+              itemCount: productsList.length,
+              itemBuilder: (context, index) {
+                final prod = productsList[index];
+                return Card(
+                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: ListTile(
+                    leading: Container(
+                      width: 50,
+                      height: 50,
+                      decoration: BoxDecoration(
+                        color: Colors.indigo.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.inventory_2, color: Colors.indigo),
+                    ),
+                    title: Text(prod['productName'], style: const TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: Text(
+                      'Cartons: ${prod['totalCartons']} (${prod['packetsPerCarton']} Pkts/Carton)\n'
+                      'Packet Price: Rs. ${prod['packetPrice']} | Carton Price: Rs. ${prod['cartonPrice']}\n'
+                      'Discount: ${prod['discount']}%',
+                    ),
+                    isThreeLine: true,
+                    trailing: const Icon(Icons.edit, color: Colors.indigo),
+                  ),
+                );
+              },
             ),
-          ],
-        ),
+      floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: Colors.indigo,
+        onPressed: _openAddProductModal,
+        icon: const Icon(Icons.add, color: Colors.white),
+        label: const Text('Add Product / Stock', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
       ),
     );
   }
 }
 
-// 3. MENU OPTIONS PAGE (Edit, Create Order, History, Payment)
-class OutletMenuScreen extends StatelessWidget {
-  final Map<String, String> outletData;
+// ADD PRODUCT FORM COMPONENT
+class AddProductForm extends StatefulWidget {
+  const AddProductForm({super.key});
 
-  const OutletMenuScreen({super.key, required this.outletData});
+  @override
+  State<AddProductForm> createState() => _AddProductFormState();
+}
+
+class _AddProductFormState extends State<AddProductForm> {
+  final _nameController = TextEditingController();
+  final _cartonsController = TextEditingController();
+  final _packetsPerCartonController = TextEditingController(text: '8'); // Default 8 Packets
+  final _packetPriceController = TextEditingController();
+  final _cartonPriceController = TextEditingController();
+  final _discountController = TextEditingController(text: '0');
+
+  void _saveProduct() {
+    if (_nameController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter Product Name')),
+      );
+      return;
+    }
+
+    Navigator.pop(context, {
+      'productName': _nameController.text,
+      'totalCartons': _cartonsController.text,
+      'packetsPerCarton': _packetsPerCartonController.text,
+      'packetPrice': _packetPriceController.text,
+      'cartonPrice': _cartonPriceController.text,
+      'discount': _discountController.text,
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(outletData['shopName'] ?? 'Menu', style: const TextStyle(color: Colors.white)),
-        backgroundColor: Colors.indigo,
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+        left: 16,
+        right: 16,
+        top: 20,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
+      child: SingleChildScrollView(
         child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Button 1: Edit
-            ListTile(
-              leading: const Icon(Icons.edit, color: Colors.indigo),
-              title: const Text('Edit Outlet Details'),
-              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-              onTap: () {},
+            const Text(
+              'Add New Stock / Product',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.indigo),
             ),
-            const Divider(),
+            const SizedBox(height: 15),
 
-            // Button 2: Create Order
-            ListTile(
-              leading: const Icon(Icons.add_shopping_cart, color: Colors.indigo),
-              title: const Text('Create Order'),
-              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-              onTap: () {},
+            // Image Upload Placeholder Button
+            OutlinedButton.icon(
+              onPressed: () {
+                // Photo upload functionality will connect here
+              },
+              icon: const Icon(Icons.add_a_photo, color: Colors.indigo),
+              label: const Text('Upload Product Image'),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(45),
+              ),
             ),
-            const Divider(),
+            const SizedBox(height: 12),
 
-            // Button 3: History & Manual Bill Upload
-            ListTile(
-              leading: const Icon(Icons.history, color: Colors.indigo),
-              title: const Text('Order History & Manual Bill'),
-              subtitle: const Text('View history, gallery bill upload & WhatsApp text'),
-              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-              onTap: () {},
+            // Product Name
+            TextField(
+              controller: _nameController,
+              decoration: const InputDecoration(
+                labelText: 'Product / Item Name',
+                border: OutlineInputBorder(),
+              ),
             ),
-            const Divider(),
+            const SizedBox(height: 12),
 
-            // Button 4: Payment Details
-            ListTile(
-              leading: const Icon(Icons.payment, color: Colors.indigo),
-              title: const Text('Payment & Balance'),
-              subtitle: const Text('Paid amount and remaining balance'),
-              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-              onTap: () {},
+            // Carton Details Row
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _cartonsController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Total Cartons',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TextField(
+                    controller: _packetsPerCartonController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Packets per Carton',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+              ],
             ),
+            const SizedBox(height: 12),
+
+            // Price Details Row
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _packetPriceController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Packet / Unit Rate',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TextField(
+                    controller: _cartonPriceController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Carton Rate',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // Discount Input
+            TextField(
+              controller: _discountController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Discount Rate (%)',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Save Product Button
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.indigo,
+                minimumSize: const Size.fromHeight(50),
+              ),
+              onPressed: _saveProduct,
+              child: const Text('Save Product to Stock', style: TextStyle(color: Colors.white, fontSize: 16)),
+            ),
+            const SizedBox(height: 20),
           ],
         ),
       ),
