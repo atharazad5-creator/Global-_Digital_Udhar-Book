@@ -5,6 +5,7 @@ void main() {
 }
 
 class GlobalDigitalKhataApp extends StatelessWidget {
+
   const GlobalDigitalKhataApp({super.key});
 
   @override
@@ -30,91 +31,76 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  // Sample Data for Ledger
+  // 3 Key Ledger Summary Items
+  double totalToGet = 27700.0;
+  double totalToGive = 4500.0;
+
   final List<Map<String, dynamic>> _customers = [
     {'name': 'Ali Raza', 'phone': '0300-1234567', 'balance': 15000, 'isYouWillGet': true},
     {'name': 'Ahmed Khan', 'phone': '0312-9876543', 'balance': 4500, 'isYouWillGet': false},
-    {'name': 'Zubair Traders', 'phone': '0333-5551212', 'balance': 8200, 'isYouWillGet': true},
+    {'name': 'Zubair Traders', 'phone': '0333-5551212', 'balance': 12700, 'isYouWillGet': true},
   ];
 
   @override
   Widget build(BuildContext context) {
-    double totalToGet = _customers
-        .where((c) => c['isYouWillGet'] == true)
-        .fold(0, (sum, c) => sum + c['balance']);
-
-    double totalToGive = _customers
-        .where((c) => c['isYouWillGet'] == false)
-        .fold(0, (sum, c) => sum + c['balance']);
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Global Digital Khata', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
         backgroundColor: Colors.indigo,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.search, color: Colors.white),
-            onPressed: () {},
-          ),
-        ],
+        centerTitle: true,
+        elevation: 2,
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            // Dashboard Summary Card
-            Container(
-              padding: const EdgeInsets.all(16),
-              color: Colors.indigo,
-              child: Card(
-                elevation: 4,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      Column(
-                        children: [
-                          const Text('You Will Get', style: TextStyle(color: Colors.grey, fontSize: 14)),
-                          const SizedBox(height: 6),
-                          Text('Rs. ${totalToGet.toStringAsFixed(0)}',
-                              style: const TextStyle(color: Colors.green, fontSize: 18, fontWeight: FontWeight.bold)),
-                        ],
-                      ),
-                      Container(height: 40, width: 1, color: Colors.grey.shade300),
-                      Column(
-                        children: [
-                          const Text('You Will Give', style: TextStyle(color: Colors.grey, fontSize: 14)),
-                          const SizedBox(height: 6),
-                          Text('Rs. ${totalToGive.toStringAsFixed(0)}',
-                              style: const TextStyle(color: Colors.red, fontSize: 18, fontWeight: FontWeight.bold)),
-                        ],
-                      ),
-                    ],
-                  ),
+      body: Column(
+        children: [
+          // STEP 1: DASHBOARD SUMMARY CARD (Top Step)
+          Container(
+            padding: const EdgeInsets.all(16),
+            color: Colors.indigo,
+            child: Card(
+              elevation: 4,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    Column(
+                      children: [
+                        const Text('You Will Get', style: TextStyle(color: Colors.grey, fontSize: 14, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 6),
+                        Text('Rs. ${totalToGet.toStringAsFixed(0)}',
+                            style: const TextStyle(color: Colors.green, fontSize: 18, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                    Container(height: 40, width: 1, color: Colors.grey.shade300),
+                    Column(
+                      children: [
+                        const Text('You Will Give', style: TextStyle(color: Colors.grey, fontSize: 14, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 6),
+                        Text('Rs. ${totalToGive.toStringAsFixed(0)}',
+                            style: const TextStyle(color: Colors.red, fontSize: 18, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  ],
                 ),
               ),
             ),
+          ),
 
-            const SizedBox(height: 10),
-
-            // Customers Section Header
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: const [
-                  Text('Customer Ledger', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  Text('View All', style: TextStyle(color: Colors.indigo, fontWeight: FontWeight.bold)),
-                ],
-              ),
+          // STEP 2: CUSTOMERS LEDGER LIST (Middle Step)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: const [
+                Text('Customer Entries', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                Text('Active Accounts', style: TextStyle(color: Colors.indigo, fontWeight: FontWeight.w600)),
+              ],
             ),
+          ),
 
-            // Customer List
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
+          Expanded(
+            child: ListView.builder(
               itemCount: _customers.length,
               itemBuilder: (context, index) {
                 final customer = _customers[index];
@@ -122,6 +108,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
                 return Card(
                   margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  elevation: 1.5,
                   child: ListTile(
                     leading: CircleAvatar(
                       backgroundColor: Colors.indigo.shade100,
@@ -138,7 +125,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           style: TextStyle(
                             color: isGet ? Colors.green : Colors.red,
                             fontWeight: FontWeight.bold,
-                            fontSize: 16,
+                            fontSize: 15,
                           ),
                         ),
                         Text(
@@ -151,14 +138,16 @@ class _HomeScreenState extends State<HomeScreen> {
                 );
               },
             ),
-          ],
-        ),
+          ),
+        ],
       ),
+
+      // STEP 3: QUICK ADD ENTRY BUTTON (Bottom Step)
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {},
         backgroundColor: Colors.indigo,
-        icon: const Icon(Icons.person_add, color: Colors.white),
-        label: const Text('Add Customer', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        icon: const Icon(Icons.add, color: Colors.white),
+        label: const Text('Add Customer Entry', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
       ),
     );
   }
