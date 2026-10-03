@@ -307,6 +307,7 @@ class _MyOutletScreenState extends State<MyOutletScreen> {
                                     List<Map<String, dynamic>> updatedOrders = List.from(widget.dailyOrders)..add(orderData);
                                     widget.onUpdateDailyOrders(updatedOrders);
                                   },
+                                  onUpdateDailyOrders: widget.onUpdateDailyOrders,
                                 ),
                               ),
                             );
@@ -327,10 +328,18 @@ class _MyOutletScreenState extends State<MyOutletScreen> {
   }
 }
 
-// ADD/EDIT OUTLET DETAILS
+// ADD / EDIT OUTLET DETAILS & TODAY'S PRODUCT SALES
 class AddOutletDetailScreen extends StatefulWidget {
   final Map<String, dynamic>? initialData;
-  const AddOutletDetailScreen({super.key, this.initialData});
+  final List<Map<String, dynamic>>? outletOrders;
+  final Function(List<Map<String, dynamic>>)? onUpdateOrders;
+
+  const AddOutletDetailScreen({
+    super.key,
+    this.initialData,
+    this.outletOrders,
+    this.onUpdateOrders,
+  });
 
   @override
   State<AddOutletDetailScreen> createState() => _AddOutletDetailScreenState();
@@ -346,6 +355,8 @@ class _AddOutletDetailScreenState extends State<AddOutletDetailScreen> {
   late TextEditingController _totalBillController;
   late TextEditingController _paidAmountController;
 
+  List<Map<String, dynamic>> currentOrders = [];
+
   @override
   void initState() {
     super.initState();
@@ -357,6 +368,10 @@ class _AddOutletDetailScreenState extends State<AddOutletDetailScreen> {
     _cityController = TextEditingController(text: widget.initialData?['city'] ?? '');
     _totalBillController = TextEditingController(text: widget.initialData?['totalBill']?.toString() ?? '0');
     _paidAmountController = TextEditingController(text: widget.initialData?['paidAmount']?.toString() ?? '0');
+
+    if (widget.outletOrders != null) {
+      currentOrders = List<Map<String, dynamic>>.from(widget.outletOrders!);
+    }
   }
 
   void _save() {
@@ -368,6 +383,10 @@ class _AddOutletDetailScreenState extends State<AddOutletDetailScreen> {
     double bill = double.tryParse(_totalBillController.text) ?? 0.0;
     double paid = double.tryParse(_paidAmountController.text) ?? 0.0;
     double bal = bill - paid;
+
+    if (widget.onUpdateOrders != null) {
+      widget.onUpdateOrders!(currentOrders);
+    }
 
     Navigator.pop(context, {
       'shopName': _shopController.text,
@@ -385,10 +404,11 @@ class _AddOutletDetailScreenState extends State<AddOutletDetailScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.initialData == null ? 'Enter Outlet Details' : 'Edit Outlet & Orders', style: const TextStyle(color: Colors.white)), backgroundColor: Colors.indigo),
+      appBar: AppBar(title: Text(widget.initialData == null ? 'Enter Outlet Details' : 'Edit Outlet & Product Orders', style: const TextStyle(color: Colors.white)), backgroundColor: Colors.indigo),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             TextField(controller: _shopController, textCapitalization: TextCapitalization.words, decoration: const InputDecoration(labelText: '1. Shop Name', border: OutlineInputBorder())),
             const SizedBox(height: 10),
@@ -401,11 +421,44 @@ class _AddOutletDetailScreenState extends State<AddOutletDetailScreen> {
             TextField(controller: _areaController, textCapitalization: TextCapitalization.words, decoration: const InputDecoration(labelText: '5. Area', border: OutlineInputBorder())),
             const SizedBox(height: 10),
             TextField(controller: _cityController, textCapitalization: TextCapitalization.words, decoration: const InputDecoration(labelText: '6. City', border: OutlineInputBorder())),
-            const SizedBox(height: 10),
-            TextField(controller: _totalBillController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Edit Total Bill Amount', border: OutlineInputBorder())),
-            const SizedBox(height: 10),
-            TextField(controller: _paidAmountController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Edit Paid Amount', border: OutlineInputBorder())),
-            const SizedBox(height: 20),
+            const SizedBox(height: 15),
+            Row(
+              children: [
+                Expanded(child: TextField(controller: _totalBillController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Total Bill (Rs)', border: OutlineInputBorder()))),
+                const SizedBox(width: 10),
+                Expanded(child: TextField(controller: _paidAmountController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Recovery / Paid (Rs)', border: OutlineInputBorder()))),
+              ],
+            ),
+            if (currentOrders.isNotEmpty) ...[
+              const SizedBox(height: 20),
+              const Text('Edit Today Product Orders:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.indigo)),
+              const SizedBox(height: 8),
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: currentOrders.length,
+                itemBuilder: (context, idx) {
+                  final ord = currentOrders[idx];
+                  return Card(
+                    color: Colors.indigo.shade50,
+                    margin: const EdgeInsets.symmetric(vertical: 4),
+                    child: ListTile(
+                      title: Text(ord['productName'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold)),
+                      subtitle: Text('Cartons: ${ord['orderedCartons']} | Amount: Rs. ${ord['totalAmount']}'),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        onPressed: () {
+                          setState(() {
+                            currentOrders.removeAt(idx);
+                          });
+                        },
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ],
+            const SizedBox(height: 25),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo, minimumSize: const Size.fromHeight(50)),
               onPressed: _save,
@@ -426,6 +479,7 @@ class OutletOptionMenuScreen extends StatelessWidget {
   final List<Map<String, dynamic>> dailyOrders;
   final Function(Map<String, dynamic>) onSaveUpdatedOutlet;
   final Function(Map<String, dynamic>, List<Map<String, dynamic>>) onSaveOrder;
+  final Function(List<Map<String, dynamic>>) onUpdateDailyOrders;
 
   const OutletOptionMenuScreen({
     super.key,
@@ -435,10 +489,13 @@ class OutletOptionMenuScreen extends StatelessWidget {
     required this.dailyOrders,
     required this.onSaveUpdatedOutlet,
     required this.onSaveOrder,
+    required this.onUpdateDailyOrders,
   });
 
   @override
   Widget build(BuildContext context) {
+    final shopOrders = dailyOrders.where((o) => o['shopName'] == outletData['shopName']).toList();
+
     return Scaffold(
       appBar: AppBar(title: Text(outletData['shopName'] ?? 'Menu', style: const TextStyle(color: Colors.white)), backgroundColor: Colors.indigo),
       body: Padding(
@@ -447,12 +504,22 @@ class OutletOptionMenuScreen extends StatelessWidget {
           children: [
             ListTile(
               leading: const Icon(Icons.edit, color: Colors.indigo),
-              title: const Text('1. Edit Outlet & Order Details'),
-              subtitle: const Text('Edit Shop Info & Bill Amounts'),
+              title: const Text('1. Edit Outlet & Product Sales'),
+              subtitle: const Text('Edit Shop Info, Recovery & Current Date Sales'),
               onTap: () async {
                 final result = await Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => AddOutletDetailScreen(initialData: outletData)),
+                  MaterialPageRoute(
+                    builder: (context) => AddOutletDetailScreen(
+                      initialData: outletData,
+                      outletOrders: shopOrders,
+                      onUpdateOrders: (updatedShopOrders) {
+                        List<Map<String, dynamic>> newGlobalOrders = dailyOrders.where((o) => o['shopName'] != outletData['shopName']).toList();
+                        newGlobalOrders.addAll(updatedShopOrders);
+                        onUpdateDailyOrders(newGlobalOrders);
+                      },
+                    ),
+                  ),
                 );
                 if (result != null && result is Map<String, dynamic>) {
                   onSaveUpdatedOutlet(result);
@@ -463,6 +530,7 @@ class OutletOptionMenuScreen extends StatelessWidget {
             ListTile(
               leading: const Icon(Icons.add_shopping_cart, color: Colors.indigo),
               title: const Text('2. Create Order'),
+              subtitle: const Text('Open Full Stock Page with Prices & Balances'),
               onTap: () {
                 Navigator.push(
                   context,
@@ -472,7 +540,6 @@ class OutletOptionMenuScreen extends StatelessWidget {
                       products: products,
                       onOrderCreated: (order, updatedProds) {
                         onSaveOrder(order, updatedProds);
-                        Navigator.pop(context);
                       },
                     ),
                   ),
@@ -483,14 +550,14 @@ class OutletOptionMenuScreen extends StatelessWidget {
             ListTile(
               leading: const Icon(Icons.receipt, color: Colors.indigo),
               title: const Text('3. Invoice History'),
-              subtitle: const Text('Show Invoice History, Upload Bill Picture & Send WhatsApp'),
+              subtitle: const Text('Full Invoice with Global Header & WhatsApp Migration'),
               onTap: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
                     builder: (context) => InvoiceHistoryScreen(
                       outletData: outletData,
-                      dailyOrders: dailyOrders.where((o) => o['shopName'] == outletData['shopName']).toList(),
+                      dailyOrders: shopOrders,
                     ),
                   ),
                 );
@@ -511,102 +578,160 @@ class OutletOptionMenuScreen extends StatelessWidget {
 }
 
 // INVOICE HISTORY SCREEN
-class InvoiceHistoryScreen extends StatefulWidget {
+class InvoiceHistoryScreen extends StatelessWidget {
   final Map<String, dynamic> outletData;
   final List<Map<String, dynamic>> dailyOrders;
 
   const InvoiceHistoryScreen({super.key, required this.outletData, required this.dailyOrders});
 
-  @override
-  State<InvoiceHistoryScreen> createState() => _InvoiceHistoryScreenState();
-}
-
-class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
-  String? manualBillImagePath;
-
-  void _sendWhatsAppInvoice(Map<String, dynamic> order) async {
-    final phone = widget.outletData['whatsapp'] ?? '';
-    final shopName = widget.outletData['shopName'] ?? '';
-    final ownerName = widget.outletData['ownerName'] ?? '';
-
+  void _sendWhatsAppFullInvoice(BuildContext context) async {
+    String phone = outletData['whatsapp'] ?? '';
     if (phone.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('WhatsApp number missing')));
       return;
     }
 
-    final message = "Dear $ownerName ($shopName),\n\nInvoice Details:\nItem: ${order['productName']}\nCartons: ${order['orderedCartons']}\nTotal Order Amount: Rs. ${order['totalAmount']}\nDate: ${order['date']}\n\nThank you for doing business with Global Digital Khata!";
-    final url = "https://wa.me/$phone?text=${Uri.encodeComponent(message)}";
+    phone = phone.replaceAll('+', '').replaceAll(' ', '').replaceAll('-', '');
+    if (phone.startsWith('0')) {
+      phone = '92${phone.substring(1)}';
+    }
+
+    num totalBill = outletData['totalBill'] ?? 0;
+    num paid = outletData['paidAmount'] ?? 0;
+    num balance = outletData['balance'] ?? (totalBill - paid);
+
+    StringBuffer invoiceBuffer = StringBuffer();
+    invoiceBuffer.writeln("==============================");
+    invoiceBuffer.writeln("    GLOBAL DIGITAL KHATA");
+    invoiceBuffer.writeln("==============================");
+    invoiceBuffer.writeln("Shop: ${outletData['shopName']}");
+    invoiceBuffer.writeln("Owner: ${outletData['ownerName']}");
+    invoiceBuffer.writeln("Phone: ${outletData['whatsapp']}");
+    invoiceBuffer.writeln("Address: ${outletData['street']}, ${outletData['area']}, ${outletData['city']}");
+    invoiceBuffer.writeln("Date: ${DateTime.now().toString().substring(0, 10)}");
+    invoiceBuffer.writeln("------------------------------");
+    invoiceBuffer.writeln("ITEMS DELIVERED:");
+
+    if (dailyOrders.isEmpty) {
+      invoiceBuffer.writeln("No specific items recorded.");
+    } else {
+      for (var order in dailyOrders) {
+        invoiceBuffer.writeln("- ${order['productName']}: ${order['orderedCartons']} Cartons = Rs. ${order['totalAmount']}");
+      }
+    }
+
+    invoiceBuffer.writeln("------------------------------");
+    invoiceBuffer.writeln("Total Bill: Rs. $totalBill");
+    invoiceBuffer.writeln("Received/Paid: Rs. $paid");
+    invoiceBuffer.writeln("Remaining Balance: Rs. $balance");
+    invoiceBuffer.writeln("==============================");
+    invoiceBuffer.writeln("Thank you for your business!");
+
+    final url = "https://wa.me/$phone?text=${Uri.encodeComponent(invoiceBuffer.toString())}";
     final Uri uri = Uri.parse(url);
+
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not open WhatsApp')));
     }
-  }
-
-  void _uploadManualBillPicture() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Manual Bill Picture uploaded and attached successfully!')),
-    );
-    setState(() {
-      manualBillImagePath = "Bill_Uploaded.jpg";
-    });
   }
 
   @override
   Widget build(BuildContext context) {
+    num totalBill = outletData['totalBill'] ?? 0;
+    num paid = outletData['paidAmount'] ?? 0;
+    num balance = outletData['balance'] ?? (totalBill - paid);
+
     return Scaffold(
-      appBar: AppBar(title: Text('Invoices - ${widget.outletData['shopName']}', style: const TextStyle(color: Colors.white)), backgroundColor: Colors.indigo),
-      body: Column(
-        children: [
-          Expanded(
-            child: widget.dailyOrders.isEmpty
-                ? const Center(child: Text('No Sales Invoices found for this Outlet.'))
-                : ListView.builder(
-                    itemCount: widget.dailyOrders.length,
-                    itemBuilder: (context, index) {
-                      final order = widget.dailyOrders[index];
-                      return Card(
-                        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        child: ListTile(
-                          leading: const Icon(Icons.receipt_long, color: Colors.indigo, size: 36),
-                          title: Text('${order['productName']} - ${order['orderedCartons']} Cartons', style: const TextStyle(fontWeight: FontWeight.bold)),
-                          subtitle: Text('Amount: Rs. ${order['totalAmount']} | Date: ${order['date']}'),
-                          trailing: IconButton(
-                            icon: const Icon(Icons.send, color: Colors.green),
-                            onPressed: () => _sendWhatsAppInvoice(order),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
+      appBar: AppBar(title: const Text('Invoice Details', style: TextStyle(color: Colors.white)), backgroundColor: Colors.indigo),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Container(
+          padding: const EdgeInsets.all(16.0),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 8)],
           ),
-          if (manualBillImagePath != null)
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: const [
-                  Icon(Icons.check_circle, color: Colors.green),
-                  SizedBox(width: 5),
-                  Text('Manual Bill Attached to History', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Center(
+                child: Text(
+                  'GLOBAL DIGITAL KHATA',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.indigo),
+                ),
+              ),
+              const Center(child: Text('Official Sales & Order Invoice', style: TextStyle(color: Colors.grey))),
+              const Divider(height: 30, thickness: 2),
+              Text('Shop Name: ${outletData['shopName']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              Text('Owner Name: ${outletData['ownerName']}'),
+              Text('Phone / WA: ${outletData['whatsapp']}'),
+              Text('Address: ${outletData['street']}, ${outletData['area']}, ${outletData['city']}'),
+              Text('Invoice Date: ${DateTime.now().toString().substring(0, 10)}'),
+              const Divider(height: 25),
+              const Text('Item Breakdown:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.indigo)),
+              const SizedBox(height: 8),
+              dailyOrders.isEmpty
+                  ? const Text('No itemized orders found.')
+                  : ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: dailyOrders.length,
+                      itemBuilder: (context, idx) {
+                        final item = dailyOrders[idx];
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4.0),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(child: Text('${item['productName']} (${item['orderedCartons']} Cartons)')),
+                              Text('Rs. ${item['totalAmount']}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+              const Divider(height: 25, thickness: 2),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Total Bill:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  Text('Rs. $totalBill', style: const TextStyle(fontWeight: FontWeight.bold)),
                 ],
               ),
-            ),
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo, minimumSize: const Size.fromHeight(50)),
-              icon: const Icon(Icons.upload_file, color: Colors.white),
-              label: const Text('Upload Manual Bill Image', style: TextStyle(color: Colors.white, fontSize: 16)),
-              onPressed: _uploadManualBillPicture,
-            ),
-          )
-        ],
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Paid Amount:'),
+                  Text('Rs. $paid'),
+                ],
+              ),
+              const SizedBox(height: 5),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Remaining Balance:', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red)),
+                  Text('Rs. $balance', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red, fontSize: 16)),
+                ],
+              ),
+              const SizedBox(height: 30),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.green, minimumSize: const Size.fromHeight(50)),
+                icon: const Icon(Icons.send, color: Colors.white),
+                label: const Text('Send WhatsApp Invoice', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                onPressed: () => _sendWhatsAppFullInvoice(context),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
 }
 
-// CREATE ORDER SCREEN (FIXED INDIVIDUAL ITEM MINUS)
+// CREATE ORDER SCREEN (FULL LIVE STOCK PAGE DISPLAY)
 class CreateOrderScreen extends StatefulWidget {
   final Map<String, dynamic> outletData;
   final List<Map<String, dynamic>> products;
@@ -619,17 +744,27 @@ class CreateOrderScreen extends StatefulWidget {
 }
 
 class _CreateOrderScreenState extends State<CreateOrderScreen> {
-  Map<String, dynamic>? selectedProduct;
-  final _cartonsController = TextEditingController();
+  late List<Map<String, dynamic>> currentProducts;
+  final Map<String, TextEditingController> _controllers = {};
 
-  void _processOrder() {
-    if (selectedProduct == null || _cartonsController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select product and enter cartons')));
+  @override
+  void initState() {
+    super.initState();
+    currentProducts = List<Map<String, dynamic>>.from(widget.products);
+    for (var p in currentProducts) {
+      _controllers[p['id']] = TextEditingController();
+    }
+  }
+
+  void _processSingleOrder(Map<String, dynamic> prod) {
+    final controller = _controllers[prod['id']];
+    if (controller == null || controller.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter carton quantity')));
       return;
     }
 
-    int orderedCartons = int.tryParse(_cartonsController.text) ?? 0;
-    int availableCartons = selectedProduct!['cartons'] ?? 0;
+    int orderedCartons = int.tryParse(controller.text) ?? 0;
+    int availableCartons = prod['cartons'] ?? 0;
 
     if (orderedCartons <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter a valid carton quantity')));
@@ -637,66 +772,109 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
     }
 
     if (orderedCartons > availableCartons) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Insufficient Stock! Only $availableCartons cartons left.')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Insufficient Stock! Only $availableCartons cartons available.')));
       return;
     }
 
-    double cartonRate = (selectedProduct!['cartonRate'] as num).toDouble();
+    double cartonRate = (prod['cartonRate'] as num).toDouble();
     double total = orderedCartons * cartonRate;
 
-    // Deduct stock ONLY for the selected unique product
-    List<Map<String, dynamic>> updatedProds = List.from(widget.products);
-    for (var p in updatedProds) {
-      if (p['id'] == selectedProduct!['id']) {
-        p['cartons'] = availableCartons - orderedCartons;
-        break;
-      }
-    }
+    setState(() {
+      prod['cartons'] = availableCartons - orderedCartons;
+    });
+
+    controller.clear();
 
     Map<String, dynamic> order = {
       'shopName': widget.outletData['shopName'],
-      'productName': '${selectedProduct!['name']} (${selectedProduct!['size']})',
+      'productName': '${prod['name']} (${prod['size']})',
       'orderedCartons': orderedCartons,
       'totalAmount': total,
       'date': DateTime.now().toString().substring(0, 10),
     };
 
-    widget.onOrderCreated(order, updatedProds);
+    widget.onOrderCreated(order, currentProducts);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('${prod['name']} Order Created Successfully! Added Rs. $total to Bill.')),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Create New Order', style: TextStyle(color: Colors.white)), backgroundColor: Colors.indigo),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            DropdownButtonFormField<Map<String, dynamic>>(
-              decoration: const InputDecoration(labelText: 'Select Product', border: OutlineInputBorder()),
-              items: widget.products.map((p) {
-                return DropdownMenuItem(
-                  value: p,
-                  child: Text('${p['name']} (${p['size']}) - Stock: ${p['cartons']} Cartons'),
-                );
-              }).toList(),
-              onChanged: (val) => setState(() => selectedProduct = val),
-            ),
-            const SizedBox(height: 15),
-            TextField(
-              controller: _cartonsController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Cartons to Buy', border: OutlineInputBorder()),
-            ),
-            const SizedBox(height: 25),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo, minimumSize: const Size.fromHeight(50)),
-              onPressed: _processOrder,
-              child: const Text('Confirm & Create Order', style: TextStyle(color: Colors.white, fontSize: 16)),
-            ),
-          ],
-        ),
+      appBar: AppBar(
+        title: Text('Create Order - ${widget.outletData['shopName']}', style: const TextStyle(color: Colors.white)),
+        backgroundColor: Colors.indigo,
       ),
+      body: currentProducts.isEmpty
+          ? const Center(child: Text('No Stock Items Available. Add Products in Stock First.'))
+          : ListView.builder(
+              padding: const EdgeInsets.all(12.0),
+              itemCount: currentProducts.length,
+              itemBuilder: (context, index) {
+                final p = currentProducts[index];
+                int cartons = p['cartons'] ?? 0;
+                int pktsPerCarton = p['pktsPerCarton'] ?? 8;
+                int totalPackets = cartons * pktsPerCarton;
+
+                return Card(
+                  elevation: 3,
+                  margin: const EdgeInsets.symmetric(vertical: 8),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('${p['name']} (${p['size']})', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.indigo)),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: cartons > 0 ? Colors.green.shade100 : Colors.red.shade100,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                cartons > 0 ? 'In Stock' : 'Out of Stock',
+                                style: TextStyle(color: cartons > 0 ? Colors.green.shade900 : Colors.red.shade900, fontWeight: FontWeight.bold, fontSize: 12),
+                              ),
+                            )
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Text('Packet Rate: Rs. ${p['pktRate']} | Carton Rate: Rs. ${p['cartonRate']}'),
+                        Text('Available Stock: $cartons Cartons ($totalPackets Total Units/Packets)', style: const TextStyle(fontWeight: FontWeight.bold)),
+                        const Divider(height: 20),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: _controllers[p['id']],
+                                keyboardType: TextInputType.number,
+                                decoration: const InputDecoration(
+                                  labelText: 'Cartons to Order',
+                                  isDense: true,
+                                  border: OutlineInputBorder(),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo),
+                              icon: const Icon(Icons.add_shopping_cart, color: Colors.white, size: 18),
+                              label: const Text('Add Order', style: TextStyle(color: Colors.white)),
+                              onPressed: () => _processSingleOrder(p),
+                            ),
+                          ],
+                        )
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
     );
   }
 }
@@ -771,13 +949,17 @@ class _StockProductScreenState extends State<StockProductScreen> {
                     itemCount: filtered.length,
                     itemBuilder: (context, index) {
                       final p = filtered[index];
+                      int cartons = p['cartons'] ?? 0;
+                      int pktsPerCarton = p['pktsPerCarton'] ?? 8;
+                      int totalPackets = cartons * pktsPerCarton;
+
                       return Card(
                         margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         child: ListTile(
                           leading: const Icon(Icons.inventory_2, color: Colors.indigo, size: 36),
                           title: Text('${p['name']} (${p['size']})', style: const TextStyle(fontWeight: FontWeight.bold)),
                           subtitle: Text(
-                            'Cartons in Stock: ${p['cartons']} | Pkts/Carton: ${p['pktsPerCarton']}\n'
+                            'Cartons in Stock: $cartons | Total Packets/Units: $totalPackets\n'
                             'Packet Rate: Rs. ${p['pktRate']} | Carton Rate: Rs. ${p['cartonRate']}',
                           ),
                           isThreeLine: true,
@@ -811,6 +993,7 @@ class _StockProductScreenState extends State<StockProductScreen> {
   }
 }
 
+// MODAL FORM FOR STOCK
 class AddProductModal extends StatefulWidget {
   final Map<String, dynamic>? initialData;
   const AddProductModal({super.key, this.initialData});
@@ -838,6 +1021,13 @@ class _AddProductModalState extends State<AddProductModal> {
     _pktRateController = TextEditingController(text: widget.initialData?['pktRate']?.toString() ?? '');
     _cartonRateController = TextEditingController(text: widget.initialData?['cartonRate']?.toString() ?? '');
     _discountController = TextEditingController(text: widget.initialData?['discount']?.toString() ?? '0');
+  }
+
+  void _calculateCartonRateFromPacket(String val) {
+    double pktRate = double.tryParse(val) ?? 0.0;
+    int pktsPerCarton = int.tryParse(_pktsPerCartonController.text) ?? 8;
+    double calculatedCartonRate = pktRate * pktsPerCarton;
+    _cartonRateController.text = calculatedCartonRate.toStringAsFixed(0);
   }
 
   void _saveProduct() {
@@ -883,9 +1073,22 @@ class _AddProductModalState extends State<AddProductModal> {
             const SizedBox(height: 10),
             Row(
               children: [
-                Expanded(child: TextField(controller: _pktRateController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Packet Rate', border: OutlineInputBorder()))),
+                Expanded(
+                  child: TextField(
+                    controller: _pktRateController,
+                    keyboardType: TextInputType.number,
+                    onChanged: _calculateCartonRateFromPacket,
+                    decoration: const InputDecoration(labelText: 'Packet/Unit Rate (Rs)', border: OutlineInputBorder()),
+                  ),
+                ),
                 const SizedBox(width: 10),
-                Expanded(child: TextField(controller: _cartonRateController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Carton Rate', border: OutlineInputBorder()))),
+                Expanded(
+                  child: TextField(
+                    controller: _cartonRateController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'Carton Rate (Auto)', border: OutlineInputBorder()),
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 10),
