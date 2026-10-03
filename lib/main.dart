@@ -1,181 +1,493 @@
-import 'dart me/convert';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:url_launcher/url_launcher.dart';
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+void main() {
   runApp(const GlobalDigitalKhataApp());
 }
 
-class GlobalDigitalKhataApp extends StatefulWidget {
-  const GlobalDigitalKhataApp({super.key});
-
-  @override
-  State<GlobalDigitalKhataApp> createState() => _GlobalDigitalKhataAppState();
-}
-
-class _GlobalDigitalKhataAppState extends State<GlobalDigitalKhataApp> {
-  List<Map<String, dynamic>> outlets = [];
-  List<Map<String, dynamic>> products = [];
-  List<Map<String, dynamic>> dailyOrders = [];
-  bool isLoading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadDataFromStorage();
-  }
-
-  Future<void> _loadDataFromStorage() async {
-    final prefs = await SharedPreferences.getInstance();
-    final String? outletsJson = prefs.getString('saved_outlets');
-    final String? productsJson = prefs.getString('saved_products');
-    final String? ordersJson = prefs.getString('saved_orders');
-
-    setState(() {
-      if (outletsJson != null) {
-        outlets = List<Map<String, dynamic>>.from(json.decode(outletsJson));
-      }
-      if (productsJson != null) {
-        products = List<Map<String, dynamic>>.from(json.decode(productsJson));
-      }
-      if (ordersJson != null) {
-        dailyOrders = List<Map<String, dynamic>>.from(json.decode(ordersJson));
-      }
-      isLoading = false;
-    });
-  }
-
-  Future<void> _saveDataToStorage() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('saved_outlets', json.encode(outlets));
-    await prefs.setString('saved_products', json.encode(products));
-    await prefs.setString('saved_orders', json.encode(dailyOrders));
-  }
+class GlobalDigitalKhataApp extends StatelessWidget {
+  const GlobalDigitalKhataApp({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    if (isLoading) {
-      return const MaterialApp(
-        debugShowCheckedModeBanner: false,
-        home: Scaffold(body: Center(child: CircularProgressIndicator(color: Colors.indigo))),
-      );
-    }
-
     return MaterialApp(
       title: 'Global Digital Khata',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         primarySwatch: Colors.indigo,
-        useMaterial3: true,
-        scaffoldBackgroundColor: const Color(0xFFF5F7FA),
+        primaryColor: const Color(0xFF1E3A8A), // Deep Corporate Blue
+        scaffoldBackgroundColor: const Color(0xFFF8FAFC),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFF1E3A8A),
+          elevation: 2,
+          centerTitle: false,
+          titleTextStyle: TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+          iconTheme: IconThemeData(color: Colors.white),
+        ),
+        cardTheme: CardTheme(
+          elevation: 2,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+        ),
       ),
-      home: MainDashboardScreen(
-        outlets: outlets,
-        products: products,
-        dailyOrders: dailyOrders,
-        onUpdateOutlets: (updated) {
-          setState(() => outlets = updated);
-          _saveDataToStorage();
-        },
-        onUpdateProducts: (updated) {
-          setState(() => products = updated);
-          _saveDataToStorage();
-        },
-        onUpdateDailyOrders: (updated) {
-          setState(() => dailyOrders = updated);
-          _saveDataToStorage();
-        },
-      ),
+      home: const MainHomeScreen(),
     );
   }
 }
 
-// ---------------------------------------------------------
-// 1. MAIN MENU DASHBOARD
-// ---------------------------------------------------------
-class MainDashboardScreen extends StatelessWidget {
-  final List<Map<String, dynamic>> outlets;
-  final List<Map<String, dynamic>> products;
-  final List<Map<String, dynamic>> dailyOrders;
-  final Function(List<Map<String, dynamic>>) onUpdateOutlets;
-  final Function(List<Map<String, dynamic>>) onUpdateProducts;
-  final Function(List<Map<String, dynamic>>) onUpdateDailyOrders;
+// ============================================================================
+// MAIN HOME SCREEN WITH SIDE DRAWER
+// ============================================================================
+class MainHomeScreen extends StatefulWidget {
+  const MainHomeScreen({Key? key}) : super(key: key);
 
-  const MainDashboardScreen({
-    super.key,
-    required this.outlets,
-    required this.products,
-    required this.dailyOrders,
-    required this.onUpdateOutlets,
-    required this.onUpdateProducts,
-    required this.onUpdateDailyOrders,
-  });
+  @override
+  State<MainHomeScreen> createState() => _MainHomeScreenState();
+}
+
+class _MainHomeScreenState extends State<MainHomeScreen> {
+  int _selectedDrawerIndex = 0;
+
+  final List<String> _titles = [
+    'Global Digital Khata',
+    'Outlets / Shops',
+    'Stock / Products',
+    'Recoveries',
+    'Sale History',
+    'Payment Methods',
+    'Switch User',
+  ];
+
+  Widget _getDrawerItemScreen(int index) {
+    switch (index) {
+      case 0:
+        return const DashboardHomeView();
+      case 1:
+        return const OutletsScreen();
+      case 2:
+        return const ProductsScreen();
+      case 3:
+        return const RecoveriesScreen();
+      case 4:
+        return const SaleHistoryScreen();
+      case 5:
+        return const PaymentMethodsScreen();
+      case 6:
+        return const SwitchUserScreen();
+      default:
+        return const DashboardHomeView();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Global Digital Khata', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.indigo,
-        centerTitle: true,
+        title: Text(_titles[_selectedDrawerIndex]),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.sync),
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Data Syncing with Server...')),
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.account_circle),
+            onPressed: () {},
+          ),
+        ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
+      drawer: AppSideDrawer(
+        selectedIndex: _selectedDrawerIndex,
+        onItemSelected: (index) {
+          setState(() {
+            _selectedDrawerIndex = index;
+          });
+          Navigator.pop(context); // Close drawer
+        },
+      ),
+      body: _getDrawerItemScreen(_selectedDrawerIndex),
+      floatingActionButton: _selectedDrawerIndex == 0
+          ? FloatingActionButton(
+              backgroundColor: const Color(0xFF1E3A8A),
+              onPressed: () {},
+              child: const Icon(Icons.qr_code_scanner, color: Colors.white),
+            )
+          : null,
+    );
+  }
+}
+
+// ============================================================================
+// SIDE DRAWER MENU
+// ============================================================================
+class AppSideDrawer extends StatelessWidget {
+  final int selectedIndex;
+  final Function(int) onItemSelected;
+
+  const AppSideDrawer({
+    Key? key,
+    required this.selectedIndex,
+    required this.onItemSelected,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Drawer(
+      child: ListView(
+        padding: EdgeInsets.zero,
+        children: [
+          UserAccountsDrawerHeader(
+            decoration: const BoxDecoration(
+              color: Color(0xFF1E3A8A),
+            ),
+            currentAccountPicture: const CircleAvatar(
+              backgroundColor: Colors.white,
+              child: Icon(Icons.business_center, color: Color(0xFF1E3A8A), size: 36),
+            ),
+            accountName: const Text(
+              'Global Digital Khata',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            ),
+            accountEmail: const Text('Sales Representative: Athar Ali'),
+          ),
+          _drawerTile(0, Icons.home, 'Home'),
+          _drawerTile(1, Icons.store, 'Outlets / Shops'),
+          _drawerTile(2, Icons.inventory_2, 'Stock / Products'),
+          _drawerTile(3, Icons.account_balance_wallet, 'Recoveries'),
+          _drawerTile(4, Icons.history, 'Sale History'),
+          _drawerTile(5, Icons.payment, 'Payment Methods'),
+          const Divider(),
+          _drawerTile(6, Icons.switch_account, 'Switch User'),
+        ],
+      ),
+    );
+  }
+
+  Widget _drawerTile(int index, IconData icon, String title) {
+    final isSelected = selectedIndex == index;
+    return ListTile(
+      leading: Icon(
+        icon,
+        color: isSelected ? const Color(0xFF1E3A8A) : Colors.grey[700],
+      ),
+      title: Text(
+        title,
+        style: TextStyle(
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          color: isSelected ? const Color(0xFF1E3A8A) : Colors.black87,
+        ),
+      ),
+      selected: isSelected,
+      selectedTileColor: Colors.blue.withOpacity(0.1),
+      onTap: () => onItemSelected(index),
+    );
+  }
+}
+
+// ============================================================================
+// 1. DASHBOARD HOME VIEW
+// ============================================================================
+class DashboardHomeView extends StatelessWidget {
+  const DashboardHomeView({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    final String todayDate = "03 Oct, 2026";
+    final String todayDay = "Saturday";
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(12.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Auto Filled Header Card
+          Card(
+            color: const Color(0xFF1E3A8A),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.calendar_today, color: Colors.white70, size: 20),
+                      const SizedBox(width: 8),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Duty Date', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                          Text(todayDate, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+                        ],
+                      ),
+                    ],
+                  ),
+                  Container(height: 30, width: 1, color: Colors.white30),
+                  Row(
+                    children: [
+                      const Icon(Icons.access_time, color: Colors.white70, size: 20),
+                      const SizedBox(width: 8),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Activity Day', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                          Text(todayDay, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+            child: Text('Today Summary', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A))),
+          ),
+
+          // Dashboard Metric Grid
+          GridView.count(
+            crossAxisCount: 2,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            childAspectRatio: 1.45,
+            crossAxisSpacing: 8,
+            mainAxisSpacing: 8,
+            children: const [
+              MetricCard(
+                title: 'Visits Outlets',
+                value: '25',
+                icon: Icons.storefront,
+                color: Colors.blue,
+              ),
+              MetricCard(
+                title: 'Sale Orders',
+                value: '10',
+                icon: Icons.shopping_cart,
+                color: Colors.orange,
+              ),
+              MetricCard(
+                title: 'Sale Value',
+                value: 'Rs 24,232',
+                icon: Icons.attach_money,
+                color: Colors.green,
+              ),
+              MetricCard(
+                title: 'Today Recovery',
+                value: 'Rs 12,500',
+                icon: Icons.account_balance_wallet,
+                color: Colors.purple,
+              ),
+              MetricCard(
+                title: 'Today Cash Bill',
+                value: 'Rs 15,000',
+                icon: Icons.payments,
+                color: Colors.teal,
+              ),
+              MetricCard(
+                title: 'Today Credit',
+                value: 'Rs 9,232',
+                icon: Icons.redAccent,
+                color: Colors.redAccent,
+              ),
+              MetricCard(
+                title: 'Available Stock',
+                value: '1,450 CTN',
+                icon: Icons.inventory_2,
+                color: Colors.indigo,
+              ),
+              MetricCard(
+                title: 'Balance Stock',
+                value: '1,200 CTN',
+                icon: Icons.widgets,
+                color: Colors.blueGrey,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class MetricCard extends StatelessWidget {
+  final String title;
+  final String value;
+  final IconData icon;
+  final Color color;
+
+  const MetricCard({
+    Key? key,
+    required this.title,
+    required this.value,
+    required this.icon,
+    required this.color,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo, padding: const EdgeInsets.symmetric(vertical: 20)),
-              icon: const Icon(Icons.store, color: Colors.white, size: 28),
-              label: const Text('1. My Outlet', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => MyOutletScreen(
-                      outlets: outlets,
-                      products: products,
-                      dailyOrders: dailyOrders,
-                      onUpdateOutlets: onUpdateOutlets,
-                      onUpdateProducts: onUpdateProducts,
-                      onUpdateDailyOrders: onUpdateDailyOrders,
-                    ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                );
+                  child: Icon(icon, color: color, size: 22),
+                ),
+              ],
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ============================================================================
+// 2. MY OUTLETS / SHOPS SCREEN
+// ============================================================================
+class OutletsScreen extends StatefulWidget {
+  const OutletsScreen({Key? key}) : super(key: key);
+
+  @override
+  State<OutletsScreen> createState() => _OutletsScreenState();
+}
+
+class _OutletsScreenState extends State<OutletsScreen> {
+  final List<Map<String, String>> _outlets = [
+    {"name": "Hamran Kiryana G/ Phatak", "area": "GHAGHAR PHATAK, KARACHI", "type": "NON-FILER", "order": "No Order", "amount": "0.0"},
+    {"name": "Waseem Kiryana Bihar Colony", "area": "DHABEJI, KARACHI", "type": "NON-FILER", "order": "Rs 735.15", "amount": "735.15"},
+    {"name": "Shahnawaz Kiryana Bihar Colony", "area": "DHABEJI, KARACHI", "type": "NON-FILER", "order": "No Order", "amount": "0.0"},
+    {"name": "Asim Confectionary", "area": "DHABEJI, KARACHI", "type": "NON-FILER", "order": "Rs 1,680.00", "amount": "1680.0"},
+    {"name": "Baloch Kiryana", "area": "GULSHAN E HADEED, KARACHI", "type": "NON-FILER", "order": "No Order", "amount": "0.0"},
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: ListView.builder(
+        itemCount: _outlets.length,
+        itemBuilder: (context, index) {
+          final outlet = _outlets[index];
+          return Card(
+            child: ListTile(
+              leading: const CircleAvatar(
+                backgroundColor: Color(0xFF1E3A8A),
+                child: Icon(Icons.store, color: Colors.white, size: 20),
+              ),
+              title: Text(outlet["name"]!, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(outlet["area"]!, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                  const SizedBox(height: 2),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(outlet["type"]!, style: const TextStyle(color: Colors.red, fontSize: 10, fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+              trailing: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(outlet["order"]!, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 12)),
+                  const SizedBox(height: 4),
+                  const Icon(Icons.location_on, color: Colors.blue, size: 18),
+                ],
+              ),
+              onTap: () {
+                _showQuickActionDialog(context, outlet["name"]!);
               },
             ),
-            const SizedBox(height: 20),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo, padding: const EdgeInsets.symmetric(vertical: 20)),
-              icon: const Icon(Icons.inventory, color: Colors.white, size: 28),
-              label: const Text('2. Stock / Products', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => StockProductScreen(
-                      products: products,
-                      onUpdateProducts: onUpdateProducts,
-                    ),
-                  ),
-                );
+          );
+        },
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: const Color(0xFF1E3A8A),
+        onPressed: () {
+          Navigator.push(context, MaterialPageRoute(builder: (context) => const NewCustomerScreen()));
+        },
+        icon: const Icon(Icons.add, color: Colors.white),
+        label: const Text('Add Outlet', style: TextStyle(color: Colors.white)),
+      ),
+    );
+  }
+
+  void _showQuickActionDialog(BuildContext context, String shopName) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(shopName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.add_shopping_cart, color: Colors.blue),
+              title: const Text('Create Order'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(context, MaterialPageRoute(builder: (context) => CreateSaleOrderScreen(customerName: shopName)));
               },
             ),
-            const SizedBox(height: 20),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo, padding: const EdgeInsets.symmetric(vertical: 20)),
-              icon: const Icon(Icons.receipt_long, color: Colors.white, size: 28),
-              label: const Text('3. Daily Sale Order', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => DailySaleOrderScreen(dailyOrders: dailyOrders),
-                  ),
-                );
+            ListTile(
+              leading: const Icon(Icons.payments, color: Colors.green),
+              title: const Text('Add Recovery'),
+              onTap: () {
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.report_problem, color: Colors.orange),
+              title: const Text('No Activity Reason'),
+              onTap: () {
+                Navigator.pop(context);
               },
             ),
           ],
@@ -185,284 +497,79 @@ class MainDashboardScreen extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------
-// 2. MY OUTLET SCREEN
-// ---------------------------------------------------------
-class MyOutletScreen extends StatefulWidget {
-  final List<Map<String, dynamic>> outlets;
-  final List<Map<String, dynamic>> products;
-  final List<Map<String, dynamic>> dailyOrders;
-  final Function(List<Map<String, dynamic>>) onUpdateOutlets;
-  final Function(List<Map<String, dynamic>>) onUpdateProducts;
-  final Function(List<Map<String, dynamic>>) onUpdateDailyOrders;
-
-  const MyOutletScreen({
-    super.key,
-    required this.outlets,
-    required this.products,
-    required this.dailyOrders,
-    required this.onUpdateOutlets,
-    required this.onUpdateProducts,
-    required this.onUpdateDailyOrders,
-  });
-
-  @override
-  State<MyOutletScreen> createState() => _MyOutletScreenState();
-}
-
-class _MyOutletScreenState extends State<MyOutletScreen> {
-  String searchQuery = '';
-
-  void _navigateToAddOutlet() async {
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const AddOutletDetailScreen()),
-    );
-
-    if (result != null && result is Map<String, dynamic>) {
-      List<Map<String, dynamic>> updated = List.from(widget.outlets)..add(result);
-      widget.onUpdateOutlets(updated);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final filteredOutlets = widget.outlets.where((o) {
-      final name = o['shopName'].toString().toLowerCase();
-      final owner = o['ownerName'].toString().toLowerCase();
-      final city = o['city'].toString().toLowerCase();
-      final q = searchQuery.toLowerCase();
-      return name.contains(q) || owner.contains(q) || city.contains(q);
-    }).toList();
-
-    return Scaffold(
-      appBar: AppBar(title: const Text('My Outlets', style: TextStyle(color: Colors.white)), backgroundColor: Colors.indigo),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(12.0),
-            child: TextField(
-              textCapitalization: TextCapitalization.words,
-              onChanged: (val) => setState(() => searchQuery = val),
-              decoration: InputDecoration(
-                hintText: 'Search Shop, Owner or City...',
-                prefixIcon: const Icon(Icons.search, color: Colors.indigo),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-            ),
-          ),
-          Expanded(
-            child: filteredOutlets.isEmpty
-                ? const Center(child: Text('No Outlet Found. Click + to Add Shop.'))
-                : ListView.builder(
-                    itemCount: filteredOutlets.length,
-                    itemBuilder: (context, index) {
-                      final item = filteredOutlets[index];
-                      num totalBill = item['totalBill'] ?? 0;
-                      num paidAmount = item['paidAmount'] ?? 0;
-                      num balance = item['balance'] ?? (totalBill - paidAmount);
-
-                      return Card(
-                        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        child: ListTile(
-                          leading: const CircleAvatar(backgroundColor: Colors.indigo, child: Icon(Icons.store, color: Colors.white)),
-                          title: Text(item['shopName'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold)),
-                          subtitle: RichText(
-                            text: TextSpan(
-                              style: const TextStyle(color: Colors.black87, fontSize: 12),
-                              children: [
-                                TextSpan(text: 'Owner: ${item['ownerName']} | WA: ${item['whatsapp']}\n'),
-                                TextSpan(text: '${item['street']}, ${item['area']}, ${item['city']}\n'),
-                                TextSpan(text: 'Total Bill: Rs. $totalBill | Paid: Rs. $paidAmount | '),
-                                TextSpan(
-                                  text: 'Balance: Rs. $balance',
-                                  style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
-                                ),
-                              ],
-                            ),
-                          ),
-                          isThreeLine: true,
-                          trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => OutletOptionMenuScreen(
-                                  outletIndex: widget.outlets.indexOf(item),
-                                  outletData: item,
-                                  products: widget.products,
-                                  dailyOrders: widget.dailyOrders,
-                                  onSaveUpdatedOutlet: (updatedOutlet) {
-                                    List<Map<String, dynamic>> updatedList = List.from(widget.outlets);
-                                    updatedList[widget.outlets.indexOf(item)] = updatedOutlet;
-                                    widget.onUpdateOutlets(updatedList);
-                                  },
-                                  onSaveOrder: (orderData, updatedProducts) {
-                                    item['totalBill'] = (item['totalBill'] ?? 0) + orderData['totalAmount'];
-                                    item['balance'] = (item['totalBill'] ?? 0) - (item['paidAmount'] ?? 0);
-                                    widget.onUpdateOutlets(List.from(widget.outlets));
-
-                                    widget.onUpdateProducts(updatedProducts);
-
-                                    List<Map<String, dynamic>> updatedOrders = List.from(widget.dailyOrders)..add(orderData);
-                                    widget.onUpdateDailyOrders(updatedOrders);
-                                  },
-                                  onUpdateDailyOrders: widget.onUpdateDailyOrders,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      );
-                    },
-                  ),
-          ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.indigo,
-        onPressed: _navigateToAddOutlet,
-        child: const Icon(Icons.add, color: Colors.white, size: 28),
-      ),
-    );
-  }
-}
-
-// ADD / EDIT OUTLET DETAILS & TODAY'S PRODUCT SALES
-class AddOutletDetailScreen extends StatefulWidget {
-  final Map<String, dynamic>? initialData;
-  final List<Map<String, dynamic>>? outletOrders;
-  final Function(List<Map<String, dynamic>>)? onUpdateOrders;
-
-  const AddOutletDetailScreen({
-    super.key,
-    this.initialData,
-    this.outletOrders,
-    this.onUpdateOrders,
-  });
-
-  @override
-  State<AddOutletDetailScreen> createState() => _AddOutletDetailScreenState();
-}
-
-class _AddOutletDetailScreenState extends State<AddOutletDetailScreen> {
-  late TextEditingController _shopController;
-  late TextEditingController _ownerController;
-  late TextEditingController _whatsappController;
-  late TextEditingController _streetController;
-  late TextEditingController _areaController;
-  late TextEditingController _cityController;
-  late TextEditingController _totalBillController;
-  late TextEditingController _paidAmountController;
-
-  List<Map<String, dynamic>> currentOrders = [];
-
-  @override
-  void initState() {
-    super.initState();
-    _shopController = TextEditingController(text: widget.initialData?['shopName'] ?? '');
-    _ownerController = TextEditingController(text: widget.initialData?['ownerName'] ?? '');
-    _whatsappController = TextEditingController(text: widget.initialData?['whatsapp'] ?? '');
-    _streetController = TextEditingController(text: widget.initialData?['street'] ?? '');
-    _areaController = TextEditingController(text: widget.initialData?['area'] ?? '');
-    _cityController = TextEditingController(text: widget.initialData?['city'] ?? '');
-    _totalBillController = TextEditingController(text: widget.initialData?['totalBill']?.toString() ?? '0');
-    _paidAmountController = TextEditingController(text: widget.initialData?['paidAmount']?.toString() ?? '0');
-
-    if (widget.outletOrders != null) {
-      currentOrders = List<Map<String, dynamic>>.from(widget.outletOrders!);
-    }
-  }
-
-  void _save() {
-    if (_shopController.text.isEmpty || _ownerController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter Shop Name & Owner Name')));
-      return;
-    }
-
-    double bill = double.tryParse(_totalBillController.text) ?? 0.0;
-    double paid = double.tryParse(_paidAmountController.text) ?? 0.0;
-    double bal = bill - paid;
-
-    if (widget.onUpdateOrders != null) {
-      widget.onUpdateOrders!(currentOrders);
-    }
-
-    Navigator.pop(context, {
-      'shopName': _shopController.text,
-      'ownerName': _ownerController.text,
-      'whatsapp': _whatsappController.text,
-      'street': _streetController.text,
-      'area': _areaController.text,
-      'city': _cityController.text,
-      'totalBill': bill,
-      'paidAmount': paid,
-      'balance': bal,
-    });
-  }
+// ============================================================================
+// 3. NEW CUSTOMER / OUTLET CREATION SCREEN
+// ============================================================================
+class NewCustomerScreen extends StatelessWidget {
+  const NewCustomerScreen({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.initialData == null ? 'Enter Outlet Details' : 'Edit Outlet & Product Orders', style: const TextStyle(color: Colors.white)), backgroundColor: Colors.indigo),
+      appBar: AppBar(title: const Text('New Customer')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            TextField(controller: _shopController, textCapitalization: TextCapitalization.words, decoration: const InputDecoration(labelText: '1. Shop Name', border: OutlineInputBorder())),
-            const SizedBox(height: 10),
-            TextField(controller: _ownerController, textCapitalization: TextCapitalization.words, decoration: const InputDecoration(labelText: '2. Owner Name', border: OutlineInputBorder())),
-            const SizedBox(height: 10),
-            TextField(controller: _whatsappController, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: '3. WhatsApp Number', border: OutlineInputBorder())),
-            const SizedBox(height: 10),
-            TextField(controller: _streetController, textCapitalization: TextCapitalization.words, decoration: const InputDecoration(labelText: '4. Street', border: OutlineInputBorder())),
-            const SizedBox(height: 10),
-            TextField(controller: _areaController, textCapitalization: TextCapitalization.words, decoration: const InputDecoration(labelText: '5. Area', border: OutlineInputBorder())),
-            const SizedBox(height: 10),
-            TextField(controller: _cityController, textCapitalization: TextCapitalization.words, decoration: const InputDecoration(labelText: '6. City', border: OutlineInputBorder())),
-            const SizedBox(height: 15),
+            TextField(decoration: InputDecoration(labelText: 'Shop Name', border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)))),
+            const SizedBox(height: 12),
+            TextField(decoration: InputDecoration(labelText: 'Contact Person', border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)))),
+            const SizedBox(height: 12),
             Row(
               children: [
-                Expanded(child: TextField(controller: _totalBillController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Total Bill (Rs)', border: OutlineInputBorder()))),
-                const SizedBox(width: 10),
-                Expanded(child: TextField(controller: _paidAmountController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Recovery / Paid (Rs)', border: OutlineInputBorder()))),
+                Expanded(child: TextField(decoration: InputDecoration(labelText: 'Mobile #', border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))))),
+                const SizedBox(width: 8),
+                Expanded(child: TextField(decoration: InputDecoration(labelText: 'Whatsapp #', border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))))),
               ],
             ),
-            if (currentOrders.isNotEmpty) ...[
-              const SizedBox(height: 20),
-              const Text('Edit Today Product Orders:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.indigo)),
-              const SizedBox(height: 8),
-              ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: currentOrders.length,
-                itemBuilder: (context, idx) {
-                  final ord = currentOrders[idx];
-                  return Card(
-                    color: Colors.indigo.shade50,
-                    margin: const EdgeInsets.symmetric(vertical: 4),
-                    child: ListTile(
-                      title: Text(ord['productName'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold)),
-                      subtitle: Text('Cartons: ${ord['orderedCartons']} | Amount: Rs. ${ord['totalAmount']}'),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.delete, color: Colors.red),
-                        onPressed: () {
-                          setState(() {
-                            currentOrders.removeAt(idx);
-                          });
-                        },
-                      ),
-                    ),
-                  );
-                },
+            const SizedBox(height: 12),
+            TextField(decoration: InputDecoration(labelText: 'Address', border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)))),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(child: TextField(decoration: InputDecoration(labelText: 'City Name', border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))))),
+                const SizedBox(width: 8),
+                Expanded(child: TextField(decoration: InputDecoration(labelText: 'Area Name', border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))))),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Container(
+              height: 150,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.grey[200],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey.shade400),
               ),
-            ],
-            const SizedBox(height: 25),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo, minimumSize: const Size.fromHeight(50)),
-              onPressed: _save,
-              child: const Text('Save Outlet & Order Details', style: TextStyle(color: Colors.white, fontSize: 16)),
+              child: const Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.location_on, size: 40, color: Colors.red),
+                  SizedBox(height: 4),
+                  Text('GPS Pinpoint Captured', style: TextStyle(fontWeight: FontWeight.bold)),
+                  Text('Lat: 24.8671985, Long: 67.3535298', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.pink, padding: const EdgeInsets.symmetric(vertical: 14)),
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('CANCEL', style: TextStyle(color: Colors.white)),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E3A8A), padding: const EdgeInsets.symmetric(vertical: 14)),
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('SAVE CUSTOMER', style: TextStyle(color: Colors.white)),
+                  ),
+                ),
+              ],
             )
           ],
         ),
@@ -471,635 +578,154 @@ class _AddOutletDetailScreenState extends State<AddOutletDetailScreen> {
   }
 }
 
-// OUTLET OPTION MENU
-class OutletOptionMenuScreen extends StatelessWidget {
-  final int outletIndex;
-  final Map<String, dynamic> outletData;
-  final List<Map<String, dynamic>> products;
-  final List<Map<String, dynamic>> dailyOrders;
-  final Function(Map<String, dynamic>) onSaveUpdatedOutlet;
-  final Function(Map<String, dynamic>, List<Map<String, dynamic>>) onSaveOrder;
-  final Function(List<Map<String, dynamic>>) onUpdateDailyOrders;
-
-  const OutletOptionMenuScreen({
-    super.key,
-    required this.outletIndex,
-    required this.outletData,
-    required this.products,
-    required this.dailyOrders,
-    required this.onSaveUpdatedOutlet,
-    required this.onSaveOrder,
-    required this.onUpdateDailyOrders,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final shopOrders = dailyOrders.where((o) => o['shopName'] == outletData['shopName']).toList();
-
-    return Scaffold(
-      appBar: AppBar(title: Text(outletData['shopName'] ?? 'Menu', style: const TextStyle(color: Colors.white)), backgroundColor: Colors.indigo),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            ListTile(
-              leading: const Icon(Icons.edit, color: Colors.indigo),
-              title: const Text('1. Edit Outlet & Product Sales'),
-              subtitle: const Text('Edit Shop Info, Recovery & Current Date Sales'),
-              onTap: () async {
-                final result = await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => AddOutletDetailScreen(
-                      initialData: outletData,
-                      outletOrders: shopOrders,
-                      onUpdateOrders: (updatedShopOrders) {
-                        List<Map<String, dynamic>> newGlobalOrders = dailyOrders.where((o) => o['shopName'] != outletData['shopName']).toList();
-                        newGlobalOrders.addAll(updatedShopOrders);
-                        onUpdateDailyOrders(newGlobalOrders);
-                      },
-                    ),
-                  ),
-                );
-                if (result != null && result is Map<String, dynamic>) {
-                  onSaveUpdatedOutlet(result);
-                }
-              },
-            ),
-            const Divider(),
-            ListTile(
-              leading: const Icon(Icons.add_shopping_cart, color: Colors.indigo),
-              title: const Text('2. Create Order'),
-              subtitle: const Text('Open Full Stock Page with Prices & Balances'),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => CreateOrderScreen(
-                      outletData: outletData,
-                      products: products,
-                      onOrderCreated: (order, updatedProds) {
-                        onSaveOrder(order, updatedProds);
-                      },
-                    ),
-                  ),
-                );
-              },
-            ),
-            const Divider(),
-            ListTile(
-              leading: const Icon(Icons.receipt, color: Colors.indigo),
-              title: const Text('3. Invoice History'),
-              subtitle: const Text('Full Invoice with Global Header & WhatsApp Migration'),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => InvoiceHistoryScreen(
-                      outletData: outletData,
-                      dailyOrders: shopOrders,
-                    ),
-                  ),
-                );
-              },
-            ),
-            const Divider(),
-            ListTile(
-              leading: const Icon(Icons.account_balance_wallet, color: Colors.indigo),
-              title: const Text('4. Payment Details'),
-              subtitle: Text('Paid: Rs. ${outletData['paidAmount'] ?? 0} | Balance: Rs. ${outletData['balance'] ?? 0}'),
-              onTap: () {},
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// INVOICE HISTORY SCREEN
-class InvoiceHistoryScreen extends StatelessWidget {
-  final Map<String, dynamic> outletData;
-  final List<Map<String, dynamic>> dailyOrders;
-
-  const InvoiceHistoryScreen({super.key, required this.outletData, required this.dailyOrders});
-
-  void _sendWhatsAppFullInvoice(BuildContext context) async {
-    String phone = outletData['whatsapp'] ?? '';
-    if (phone.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('WhatsApp number missing')));
-      return;
-    }
-
-    phone = phone.replaceAll('+', '').replaceAll(' ', '').replaceAll('-', '');
-    if (phone.startsWith('0')) {
-      phone = '92${phone.substring(1)}';
-    }
-
-    num totalBill = outletData['totalBill'] ?? 0;
-    num paid = outletData['paidAmount'] ?? 0;
-    num balance = outletData['balance'] ?? (totalBill - paid);
-
-    StringBuffer invoiceBuffer = StringBuffer();
-    invoiceBuffer.writeln("==============================");
-    invoiceBuffer.writeln("    GLOBAL DIGITAL KHATA");
-    invoiceBuffer.writeln("==============================");
-    invoiceBuffer.writeln("Shop: ${outletData['shopName']}");
-    invoiceBuffer.writeln("Owner: ${outletData['ownerName']}");
-    invoiceBuffer.writeln("Phone: ${outletData['whatsapp']}");
-    invoiceBuffer.writeln("Address: ${outletData['street']}, ${outletData['area']}, ${outletData['city']}");
-    invoiceBuffer.writeln("Date: ${DateTime.now().toString().substring(0, 10)}");
-    invoiceBuffer.writeln("------------------------------");
-    invoiceBuffer.writeln("ITEMS DELIVERED:");
-
-    if (dailyOrders.isEmpty) {
-      invoiceBuffer.writeln("No specific items recorded.");
-    } else {
-      for (var order in dailyOrders) {
-        invoiceBuffer.writeln("- ${order['productName']}: ${order['orderedCartons']} Cartons = Rs. ${order['totalAmount']}");
-      }
-    }
-
-    invoiceBuffer.writeln("------------------------------");
-    invoiceBuffer.writeln("Total Bill: Rs. $totalBill");
-    invoiceBuffer.writeln("Received/Paid: Rs. $paid");
-    invoiceBuffer.writeln("Remaining Balance: Rs. $balance");
-    invoiceBuffer.writeln("==============================");
-    invoiceBuffer.writeln("Thank you for your business!");
-
-    final url = "https://wa.me/$phone?text=${Uri.encodeComponent(invoiceBuffer.toString())}";
-    final Uri uri = Uri.parse(url);
-
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not open WhatsApp')));
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    num totalBill = outletData['totalBill'] ?? 0;
-    num paid = outletData['paidAmount'] ?? 0;
-    num balance = outletData['balance'] ?? (totalBill - paid);
-
-    return Scaffold(
-      appBar: AppBar(title: const Text('Invoice Details', style: TextStyle(color: Colors.white)), backgroundColor: Colors.indigo),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Container(
-          padding: const EdgeInsets.all(16.0),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 8)],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Center(
-                child: Text(
-                  'GLOBAL DIGITAL KHATA',
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.indigo),
-                ),
-              ),
-              const Center(child: Text('Official Sales & Order Invoice', style: TextStyle(color: Colors.grey))),
-              const Divider(height: 30, thickness: 2),
-              Text('Shop Name: ${outletData['shopName']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              Text('Owner Name: ${outletData['ownerName']}'),
-              Text('Phone / WA: ${outletData['whatsapp']}'),
-              Text('Address: ${outletData['street']}, ${outletData['area']}, ${outletData['city']}'),
-              Text('Invoice Date: ${DateTime.now().toString().substring(0, 10)}'),
-              const Divider(height: 25),
-              const Text('Item Breakdown:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.indigo)),
-              const SizedBox(height: 8),
-              dailyOrders.isEmpty
-                  ? const Text('No itemized orders found.')
-                  : ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: dailyOrders.length,
-                      itemBuilder: (context, idx) {
-                        final item = dailyOrders[idx];
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 4.0),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Expanded(child: Text('${item['productName']} (${item['orderedCartons']} Cartons)')),
-                              Text('Rs. ${item['totalAmount']}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-              const Divider(height: 25, thickness: 2),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('Total Bill:', style: TextStyle(fontWeight: FontWeight.bold)),
-                  Text('Rs. $totalBill', style: const TextStyle(fontWeight: FontWeight.bold)),
-                ],
-              ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('Paid Amount:'),
-                  Text('Rs. $paid'),
-                ],
-              ),
-              const SizedBox(height: 5),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('Remaining Balance:', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red)),
-                  Text('Rs. $balance', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red, fontSize: 16)),
-                ],
-              ),
-              const SizedBox(height: 30),
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.green, minimumSize: const Size.fromHeight(50)),
-                icon: const Icon(Icons.send, color: Colors.white),
-                label: const Text('Send WhatsApp Invoice', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                onPressed: () => _sendWhatsAppFullInvoice(context),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// CREATE ORDER SCREEN (FULL LIVE STOCK PAGE DISPLAY)
-class CreateOrderScreen extends StatefulWidget {
-  final Map<String, dynamic> outletData;
-  final List<Map<String, dynamic>> products;
-  final Function(Map<String, dynamic>, List<Map<String, dynamic>>) onOrderCreated;
-
-  const CreateOrderScreen({super.key, required this.outletData, required this.products, required this.onOrderCreated});
-
-  @override
-  State<CreateOrderScreen> createState() => _CreateOrderScreenState();
-}
-
-class _CreateOrderScreenState extends State<CreateOrderScreen> {
-  late List<Map<String, dynamic>> currentProducts;
-  final Map<String, TextEditingController> _controllers = {};
-
-  @override
-  void initState() {
-    super.initState();
-    currentProducts = List<Map<String, dynamic>>.from(widget.products);
-    for (var p in currentProducts) {
-      _controllers[p['id']] = TextEditingController();
-    }
-  }
-
-  void _processSingleOrder(Map<String, dynamic> prod) {
-    final controller = _controllers[prod['id']];
-    if (controller == null || controller.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter carton quantity')));
-      return;
-    }
-
-    int orderedCartons = int.tryParse(controller.text) ?? 0;
-    int availableCartons = prod['cartons'] ?? 0;
-
-    if (orderedCartons <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter a valid carton quantity')));
-      return;
-    }
-
-    if (orderedCartons > availableCartons) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Insufficient Stock! Only $availableCartons cartons available.')));
-      return;
-    }
-
-    double cartonRate = (prod['cartonRate'] as num).toDouble();
-    double total = orderedCartons * cartonRate;
-
-    setState(() {
-      prod['cartons'] = availableCartons - orderedCartons;
-    });
-
-    controller.clear();
-
-    Map<String, dynamic> order = {
-      'shopName': widget.outletData['shopName'],
-      'productName': '${prod['name']} (${prod['size']})',
-      'orderedCartons': orderedCartons,
-      'totalAmount': total,
-      'date': DateTime.now().toString().substring(0, 10),
-    };
-
-    widget.onOrderCreated(order, currentProducts);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${prod['name']} Order Created Successfully! Added Rs. $total to Bill.')),
-    );
-  }
+// ============================================================================
+// 4. CREATE SALE ORDER SCREEN
+// ============================================================================
+class CreateSaleOrderScreen extends StatelessWidget {
+  final String customerName;
+  const CreateSaleOrderScreen({Key? key, required this.customerName}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Create Order - ${widget.outletData['shopName']}', style: const TextStyle(color: Colors.white)),
-        backgroundColor: Colors.indigo,
-      ),
-      body: currentProducts.isEmpty
-          ? const Center(child: Text('No Stock Items Available. Add Products in Stock First.'))
-          : ListView.builder(
-              padding: const EdgeInsets.all(12.0),
-              itemCount: currentProducts.length,
-              itemBuilder: (context, index) {
-                final p = currentProducts[index];
-                int cartons = p['cartons'] ?? 0;
-                int pktsPerCarton = p['pktsPerCarton'] ?? 8;
-                int totalPackets = cartons * pktsPerCarton;
-
-                return Card(
-                  elevation: 3,
-                  margin: const EdgeInsets.symmetric(vertical: 8),
-                  child: Padding(
-                    padding: const EdgeInsets.all(12.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text('${p['name']} (${p['size']})', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.indigo)),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: cartons > 0 ? Colors.green.shade100 : Colors.red.shade100,
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                cartons > 0 ? 'In Stock' : 'Out of Stock',
-                                style: TextStyle(color: cartons > 0 ? Colors.green.shade900 : Colors.red.shade900, fontWeight: FontWeight.bold, fontSize: 12),
-                              ),
-                            )
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        Text('Packet Rate: Rs. ${p['pktRate']} | Carton Rate: Rs. ${p['cartonRate']}'),
-                        Text('Available Stock: $cartons Cartons ($totalPackets Total Units/Packets)', style: const TextStyle(fontWeight: FontWeight.bold)),
-                        const Divider(height: 20),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: _controllers[p['id']],
-                                keyboardType: TextInputType.number,
-                                decoration: const InputDecoration(
-                                  labelText: 'Cartons to Order',
-                                  isDense: true,
-                                  border: OutlineInputBorder(),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo),
-                              icon: const Icon(Icons.add_shopping_cart, color: Colors.white, size: 18),
-                              label: const Text('Add Order', style: TextStyle(color: Colors.white)),
-                              onPressed: () => _processSingleOrder(p),
-                            ),
-                          ],
-                        )
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-    );
-  }
-}
-
-// ---------------------------------------------------------
-// 3. STOCK / PRODUCTS SCREEN
-// ---------------------------------------------------------
-class StockProductScreen extends StatefulWidget {
-  final List<Map<String, dynamic>> products;
-  final Function(List<Map<String, dynamic>>) onUpdateProducts;
-
-  const StockProductScreen({super.key, required this.products, required this.onUpdateProducts});
-
-  @override
-  State<StockProductScreen> createState() => _StockProductScreenState();
-}
-
-class _StockProductScreenState extends State<StockProductScreen> {
-  String searchQuery = '';
-
-  void _openAddEditProductModal([Map<String, dynamic>? existingProduct, int? index]) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (context) => AddProductModal(initialData: existingProduct),
-    ).then((newProd) {
-      if (newProd != null && newProd is Map<String, dynamic>) {
-        List<Map<String, dynamic>> updated = List.from(widget.products);
-        if (index != null) {
-          updated[index] = newProd;
-        } else {
-          updated.add(newProd);
-        }
-        widget.onUpdateProducts(updated);
-      }
-    });
-  }
-
-  void _deleteProduct(int index) {
-    List<Map<String, dynamic>> updated = List.from(widget.products);
-    updated.removeAt(index);
-    widget.onUpdateProducts(updated);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final filtered = widget.products.where((p) {
-      return p['name'].toString().toLowerCase().contains(searchQuery.toLowerCase());
-    }).toList();
-
-    return Scaffold(
-      appBar: AppBar(title: const Text('Stock / Products Management', style: TextStyle(color: Colors.white)), backgroundColor: Colors.indigo),
+      appBar: AppBar(title: Text('Sale Order: $customerName')),
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.all(12.0),
-            child: TextField(
-              textCapitalization: TextCapitalization.words,
-              onChanged: (val) => setState(() => searchQuery = val),
-              decoration: InputDecoration(
-                hintText: 'Search Product Name...',
-                prefixIcon: const Icon(Icons.search, color: Colors.indigo),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-              ),
+          Container(
+            padding: const EdgeInsets.all(12),
+            color: Colors.blue.withOpacity(0.08),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Customer: $customerName', style: const TextStyle(fontWeight: FontWeight.bold)),
+                const Text('Inv. Date: 04/10/2026', style: TextStyle(fontSize: 12)),
+              ],
             ),
           ),
           Expanded(
-            child: filtered.isEmpty
-                ? const Center(child: Text('No Products Added. Click + to Add Stock.'))
-                : ListView.builder(
-                    itemCount: filtered.length,
-                    itemBuilder: (context, index) {
-                      final p = filtered[index];
-                      int cartons = p['cartons'] ?? 0;
-                      int pktsPerCarton = p['pktsPerCarton'] ?? 8;
-                      int totalPackets = cartons * pktsPerCarton;
-
-                      return Card(
-                        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        child: ListTile(
-                          leading: const Icon(Icons.inventory_2, color: Colors.indigo, size: 36),
-                          title: Text('${p['name']} (${p['size']})', style: const TextStyle(fontWeight: FontWeight.bold)),
-                          subtitle: Text(
-                            'Cartons in Stock: $cartons | Total Packets/Units: $totalPackets\n'
-                            'Packet Rate: Rs. ${p['pktRate']} | Carton Rate: Rs. ${p['cartonRate']}',
-                          ),
-                          isThreeLine: true,
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.edit, color: Colors.indigo),
-                                onPressed: () => _openAddEditProductModal(p, index),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.delete, color: Colors.red),
-                                onPressed: () => _deleteProduct(index),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
+            child: ListView(
+              padding: const EdgeInsets.all(8),
+              children: const [
+                Card(
+                  child: ListTile(
+                    title: Text('Vista Detergent Powder 18 Gm*240', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                    subtitle: Text('CTN: 0, PCS: 24  |  Unit Price: 8.73'),
+                    trailing: Text('Rs 209.44', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
                   ),
+                ),
+                Card(
+                  child: ListTile(
+                    title: Text('Vista Detergent Powder 85 Gm*66', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                    subtitle: Text('CTN: 0, PCS: 12  |  Unit Price: 43.81'),
+                    trailing: Text('Rs 525.71', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4, spreadRadius: 1)],
+            ),
+            child: Column(
+              children: [
+                const Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Items: 2', style: TextStyle(fontWeight: FontWeight.bold)),
+                    Text('Bill Total: Rs 735.15', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF1E3A8A))),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.pink, padding: const EdgeInsets.symmetric(vertical: 12)),
+                        onPressed: () {},
+                        icon: const Icon(Icons.add, color: Colors.white, size: 18),
+                        label: const Text('ITEM', style: TextStyle(color: Colors.white)),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E3A8A), padding: const EdgeInsets.symmetric(vertical: 12)),
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.check, color: Colors.white, size: 18),
+                        label: const Text('SAVE', style: TextStyle(color: Colors.white)),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.green, padding: const EdgeInsets.symmetric(vertical: 12)),
+                        onPressed: () {},
+                        icon: const Icon(Icons.payments, color: Colors.white, size: 18),
+                        label: const Text('PAYMENT', style: TextStyle(color: Colors.white)),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: Colors.indigo,
-        onPressed: () => _openAddEditProductModal(),
-        icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text('Add Product', style: TextStyle(color: Colors.white)),
       ),
     );
   }
 }
 
-// MODAL FORM FOR STOCK
-class AddProductModal extends StatefulWidget {
-  final Map<String, dynamic>? initialData;
-  const AddProductModal({super.key, this.initialData});
-
-  @override
-  State<AddProductModal> createState() => _AddProductModalState();
-}
-
-class _AddProductModalState extends State<AddProductModal> {
-  late TextEditingController _nameController;
-  late TextEditingController _sizeController;
-  late TextEditingController _cartonsController;
-  late TextEditingController _pktsPerCartonController;
-  late TextEditingController _pktRateController;
-  late TextEditingController _cartonRateController;
-  late TextEditingController _discountController;
-
-  @override
-  void initState() {
-    super.initState();
-    _nameController = TextEditingController(text: widget.initialData?['name'] ?? '');
-    _sizeController = TextEditingController(text: widget.initialData?['size'] ?? '');
-    _cartonsController = TextEditingController(text: widget.initialData?['cartons']?.toString() ?? '');
-    _pktsPerCartonController = TextEditingController(text: widget.initialData?['pktsPerCarton']?.toString() ?? '8');
-    _pktRateController = TextEditingController(text: widget.initialData?['pktRate']?.toString() ?? '');
-    _cartonRateController = TextEditingController(text: widget.initialData?['cartonRate']?.toString() ?? '');
-    _discountController = TextEditingController(text: widget.initialData?['discount']?.toString() ?? '0');
-  }
-
-  void _calculateCartonRateFromPacket(String val) {
-    double pktRate = double.tryParse(val) ?? 0.0;
-    int pktsPerCarton = int.tryParse(_pktsPerCartonController.text) ?? 8;
-    double calculatedCartonRate = pktRate * pktsPerCarton;
-    _cartonRateController.text = calculatedCartonRate.toStringAsFixed(0);
-  }
-
-  void _saveProduct() {
-    if (_nameController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter Product Name')));
-      return;
-    }
-
-    Navigator.pop(context, {
-      'id': widget.initialData?['id'] ?? DateTime.now().millisecondsSinceEpoch.toString(),
-      'name': _nameController.text,
-      'size': _sizeController.text,
-      'cartons': int.tryParse(_cartonsController.text) ?? 0,
-      'pktsPerCarton': int.tryParse(_pktsPerCartonController.text) ?? 8,
-      'pktRate': double.tryParse(_pktRateController.text) ?? 0.0,
-      'cartonRate': double.tryParse(_cartonRateController.text) ?? 0.0,
-      'discount': double.tryParse(_discountController.text) ?? 0.0,
-    });
-  }
+// ============================================================================
+// 5. PRODUCTS / STOCK SCREEN
+// ============================================================================
+class ProductsScreen extends StatelessWidget {
+  const ProductsScreen({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, left: 16, right: 16, top: 20),
-      child: SingleChildScrollView(
+    return ListView(
+      padding: const EdgeInsets.all(8),
+      children: const [
+        ProductCard(name: "MAMA's Soya Sauce Can 4 Ltr", ctnRate: "2900.0", unitRate: "725.0", ctnStock: "2.0", pcsStock: "0.0", retail: "0.0"),
+        ProductCard(name: "Bonjour 345 Ml Sip Rite (1x12)", ctnRate: "594.96", unitRate: "49.58", ctnStock: "16.0", pcsStock: "0.0", retail: "65.0"),
+        ProductCard(name: "Bonjour 1500 Ml Siprite (1x6)", ctnRate: "790.02", unitRate: "131.67", ctnStock: "7.0", pcsStock: "0.0", retail: "150.0"),
+      ],
+    );
+  }
+}
+
+class ProductCard extends StatelessWidget {
+  final String name, ctnRate, unitRate, ctnStock, pcsStock, retail;
+  const ProductCard({Key? key, required this.name, required this.ctnRate, required this.unitRate, required this.ctnStock, required this.pcsStock, required this.retail}) : super(key: key);
+
+  @style
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(widget.initialData == null ? 'Add New Stock Product' : 'Edit Stock Product', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.indigo)),
-            const SizedBox(height: 12),
-            TextField(controller: _nameController, textCapitalization: TextCapitalization.words, decoration: const InputDecoration(labelText: 'Product Name', border: OutlineInputBorder())),
-            const SizedBox(height: 10),
-            TextField(controller: _sizeController, textCapitalization: TextCapitalization.words, decoration: const InputDecoration(labelText: 'Product Size', border: OutlineInputBorder())),
-            const SizedBox(height: 10),
+            Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+            const Divider(),
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Expanded(child: TextField(controller: _cartonsController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Total Cartons', border: OutlineInputBorder()))),
-                const SizedBox(width: 10),
-                Expanded(child: TextField(controller: _pktsPerCartonController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Packets/Carton', border: OutlineInputBorder()))),
+                Text('Cotton Rate: $ctnRate', style: const TextStyle(fontSize: 12)),
+                Text('Unit Rate: $unitRate', style: const TextStyle(fontSize: 12)),
               ],
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 4),
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Expanded(
-                  child: TextField(
-                    controller: _pktRateController,
-                    keyboardType: TextInputType.number,
-                    onChanged: _calculateCartonRateFromPacket,
-                    decoration: const InputDecoration(labelText: 'Packet/Unit Rate (Rs)', border: OutlineInputBorder()),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: TextField(
-                    controller: _cartonRateController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'Carton Rate (Auto)', border: OutlineInputBorder()),
-                  ),
-                ),
+                Text('Cotton Stock: $ctnStock', style: const TextStyle(fontSize: 12, color: Colors.blue, fontWeight: FontWeight.bold)),
+                Text('Pcs Stock: $pcsStock', style: const TextStyle(fontSize: 12, color: Colors.blue, fontWeight: FontWeight.bold)),
               ],
             ),
-            const SizedBox(height: 10),
-            TextField(controller: _discountController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Discount Rate (%)', border: OutlineInputBorder())),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo, minimumSize: const Size.fromHeight(50)),
-              onPressed: _saveProduct,
-              child: const Text('Save Stock Item', style: TextStyle(color: Colors.white, fontSize: 16)),
-            ),
-            const SizedBox(height: 20),
           ],
         ),
       ),
@@ -1107,33 +733,34 @@ class _AddProductModalState extends State<AddProductModal> {
   }
 }
 
-// ---------------------------------------------------------
-// 4. DAILY SALE ORDER SCREEN
-// ---------------------------------------------------------
-class DailySaleOrderScreen extends StatelessWidget {
-  final List<Map<String, dynamic>> dailyOrders;
-  const DailySaleOrderScreen({super.key, required this.dailyOrders});
-
+class RecoveriesScreen extends StatelessWidget {
+  const RecoveriesScreen({Key? key}) : super(key: key);
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Daily Sale Order', style: TextStyle(color: Colors.white)), backgroundColor: Colors.indigo),
-      body: dailyOrders.isEmpty
-          ? const Center(child: Text('No Daily Sale Orders Created Yet.'))
-          : ListView.builder(
-              itemCount: dailyOrders.length,
-              itemBuilder: (context, index) {
-                final order = dailyOrders[index];
-                return Card(
-                  margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  child: ListTile(
-                    leading: const CircleAvatar(backgroundColor: Colors.green, child: Icon(Icons.check, color: Colors.white)),
-                    title: Text('${order['shopName']} - Rs. ${order['totalAmount']}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                    subtitle: Text('Item: ${order['productName']} | Cartons: ${order['orderedCartons']}\nDate: ${order['date']}'),
-                  ),
-                );
-              },
-            ),
-    );
+    return const Center(child: Text('Recoveries Management View'));
+  }
+}
+
+class SaleHistoryScreen extends StatelessWidget {
+  const SaleHistoryScreen({Key? key}) : super(key: key);
+  @override
+  Widget build(BuildContext context) {
+    return const Center(child: Text('Sale Orders History View'));
+  }
+}
+
+class PaymentMethodsScreen extends StatelessWidget {
+  const PaymentMethodsScreen({Key? key}) : super(key: key);
+  @override
+  Widget build(BuildContext context) {
+    return const Center(child: Text('Payment Methods Configuration'));
+  }
+}
+
+class SwitchUserScreen extends StatelessWidget {
+  const SwitchUserScreen({Key? key}) : super(key: key);
+  @override
+  Widget build(BuildContext context) {
+    return const Center(child: Text('Switch User / Salesman Screen'));
   }
 }
